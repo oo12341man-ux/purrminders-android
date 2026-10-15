@@ -1119,7 +1119,7 @@ let DB={v:2,items:[],log:[],alerted:{}};
 function load(){try{const v=JSON.parse(localStorage.getItem(KEY+'v2'));if(v&&Array.isArray(v.items))DB=Object.assign({log:[],alerted:{}},v)}catch(e){}}
 let saveFailed=false;
 function persist(){try{localStorage.setItem(KEY+'v2',JSON.stringify(DB));if(saveFailed){saveFailed=false;say('Saved again \u2013 all good.')}}
-  catch(e){saveFailed=true;say('\u26a0\ufe0f Couldn\u2019t save: this device\u2019s storage is full. Use Menu \u2192 Back up now, then free some space.')}}
+  catch(e){saveFailed=true;say('\u26a0\ufe0f Couldn\u2019t save: your phone\u2019s storage is full. Free up some space (Android Settings \u2192 Storage), then reopen the app.')}}
 /* another tab or window of this copy changed the data: pick it up so neither overwrites the other */
 addEventListener('storage',e=>{if(e.key===KEY+'v2'&&e.newValue){try{const v=JSON.parse(e.newValue);if(v&&Array.isArray(v.items)){DB=Object.assign({log:[],alerted:{}},v);onTasksChanged()}}catch(_){}}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){const before=JSON.stringify(DB.items.length);load();if(JSON.stringify(DB.items.length)!==before||true)onTasksChanged()}});
@@ -1790,7 +1790,10 @@ function playFx(dt,t){
     if(b.m.position.z<PB[1]||b.m.position.z>PB[3]+.5){b.v.z*=-.7;b.m.position.z=clamp(b.m.position.z,PB[1],PB[3]+.5)}
     b.m.rotation.x+=b.v.z*dt*8;b.m.rotation.z-=b.v.x*dt*8}
 }
-let bt;function say(m){const b=document.getElementById('bubble');b.textContent=m;b.style.display='block';clearTimeout(bt);bt=setTimeout(()=>b.style.display='none',3500)}
+let bt;function say(m){const b=document.getElementById('bubble');
+  /* while saving is failing, every message says so, so it never looks like something was saved when it wasn't */
+  if(typeof saveFailed!=='undefined'&&saveFailed&&!/^\u26a0/.test(m))m='\u26a0\ufe0f Not saved (phone storage full) \u2013 '+m;
+  b.textContent=m;b.style.display='block';clearTimeout(bt);bt=setTimeout(()=>b.style.display='none',/^\u26a0/.test(m)?7000:3500)}
 
 /* controls */
 document.title=CFG.officeName;$('ttl').innerHTML=esc(CFG.officeName)+'<span id="gsdot"></span>';
@@ -2071,21 +2074,35 @@ function geminiWire(){$('gmshow').onclick=()=>{const i=$('gmkey');i.type=i.type=
 const NV={on:!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()),LN:null,busy:false,timer:null,perm:null,last:0,count:0};
 const NV_DAYS=7,NV_MAX=200;/* Android allows up to 500 alarms per app */
 function nvHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>1)%2000000000+1}
-/* every moment over the next days when an alert would go off, using the app's own rules (pure: no side effects) */
-async function futureAlerts(fromMs,days,alerted0,pause){const end=fromMs+days*864e5,alerted=Object.assign({},alerted0||{}),out=[],cand=new Set();
-  const minute=ms=>Math.ceil(ms/60e3)*60e3,add=ms=>{if(ms>fromMs&&ms<=end)cand.add(minute(ms))};
-  for(let t=minute(fromMs)+60e3;t<=end;t+=30*60e3)cand.add(t);
-  const hm=(d,s)=>{const[h,m]=String(s).split(':').map(Number);return new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m).getTime()};
-  for(let i=0;i<=days;i++){const d=new Date(fromMs+i*864e5);d.setHours(12,0,0,0);
-    for(const w of Object.keys(WIN_DEF))add(hm(d,winTime(w)));add(hm(d,nudgeTime()));add(hm(d,SET().quietEnd));add(hm(d,SET().quietStart)-60e3);
-    for(const e of entries(new Date(Math.max(fromMs,d.getTime()-12*36e5)))){if(e.at)add(e.at.getTime());if(e.step&&e.step.at)add(new Date(e.step.at).getTime())}}
-  const list=[...cand].sort((a,b)=>a-b);let prev=fromMs;
-  const insert=x=>{if(x<=prev||x>end)return;x=minute(x);let lo=0,hi=list.length;while(lo<hi){const m=(lo+hi)>>1;if(list[m]<x)lo=m+1;else hi=m}if(list[lo]!==x)list.splice(lo,0,x)};
-  for(let i=0;i<list.length;i++){if(pause&&i%40===39)await pause();const t=list[i],plan=alertPlan(new Date(t),alerted);
-    for(const p of plan){let lo=prev,hi=t;/* earliest minute in (prev,t] when it fires */
-      while(hi-lo>60e3){const mid=minute((lo+hi)/2);if(mid>=hi)break;if(alertPlan(new Date(mid),alerted).some(q=>q.k===p.k))hi=mid;else lo=mid}
-      alerted[p.k]=hi;out.push({k:p.k,at:hi,p});if(!p.again)insert(hi+30*60e3)}
-    prev=t}
+/* every moment over the next days when an alert would go off, using the app's own rules.
+   Items don't affect each other's alerts, so each item is planned on its own, looking only at the moments
+   that matter for it: much less work for the phone (less heat), and the screen stays smooth while it runs. */
+async function futureAlerts(fromMs,days,alerted0,pause){const end=fromMs+days*864e5,alerted=Object.assign({},alerted0||{}),out=[],all=DB.items;
+  const minute=ms=>Math.ceil(ms/60e3)*60e3,hm=(d,s)=>{const[h,m]=String(s).split(':').map(Number);return new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m).getTime()};
+  /* moments that matter for everyone: your time windows, nudge time, quiet hours */
+  const shared=[];for(let i=0;i<=days;i++){const d=new Date(fromMs+i*864e5);d.setHours(12,0,0,0);
+    for(const w of Object.keys(WIN_DEF))shared.push(hm(d,winTime(w)));shared.push(hm(d,nudgeTime()),hm(d,SET().quietEnd),hm(d,SET().quietStart)-60e3,hm(d,'00:00')+60e3)}
+  for(let t=minute(fromMs)+60e3;t<=end;t+=120*60e3)shared.push(t);/* safety net every 2 hours */
+  let slice=performance.now();
+  try{
+    for(const item of all){if(item.deleted)continue;
+      if(pause&&performance.now()-slice>12){DB.items=all;await pause();slice=performance.now()}
+      DB.items=[item];
+      const cand=new Set(),add=ms=>{if(ms>fromMs&&ms<=end)cand.add(minute(ms))};shared.forEach(add);
+      for(let i=0;i<=days;i++){const d=new Date(fromMs+i*864e5);d.setHours(0,0,0,0);
+        for(const e of entries(new Date(Math.max(fromMs,d.getTime())))){if(e.at){add(e.at.getTime());add(e.at.getTime()-60*60e3)}if(e.step&&e.step.at)add(new Date(e.step.at).getTime())}}
+      const list=[...cand].sort((a,b)=>a-b);let prev=fromMs;
+      const insert=x=>{if(x<=prev||x>end)return;x=minute(x);let lo=0,hi=list.length;while(lo<hi){const m=(lo+hi)>>1;if(list[m]<x)lo=m+1;else hi=m}if(list[lo]!==x)list.splice(lo,0,x)};
+      for(let i=0;i<list.length;i++){const t=list[i];let plan=alertPlan(new Date(t),alerted);
+        /* repeat at this same moment: an alert found here can make a "remind again" due before the next checkpoint */
+        for(let round=0;plan.length&&round<4;round++){
+          for(const p of plan){let lo=prev,hi=t;/* earliest minute in (prev,t] when it fires */
+            while(hi-lo>60e3){const mid=minute((lo+hi)/2);if(mid>=hi)break;if(alertPlan(new Date(mid),alerted).some(q=>q.k===p.k))hi=mid;else lo=mid}
+            alerted[p.k]=hi;out.push({k:p.k,at:hi,p});if(!p.again)insert(hi+30*60e3)}
+          plan=alertPlan(new Date(t),alerted)}
+        prev=t}
+    }
+  }finally{DB.items=all}
   return out.sort((a,b)=>a.at-b.at)}
 function nvState(){try{return JSON.parse(localStorage.getItem(KEY+'native'))||[]}catch(e){return[]}}
 function nvPut(s){try{localStorage.setItem(KEY+'native',JSON.stringify(s))}catch(e){}}
@@ -2095,7 +2112,11 @@ function nvCatchUp(){if(!NV.on)return;const now=Date.now(),s=nvState();let ch=fa
   nvPut(s.filter(n=>n.at>now));if(ch)persist()}
 function nvSoon(ms){if(!NV.on)return;clearTimeout(NV.timer);NV.timer=setTimeout(nvSchedule,ms==null?2500:ms)}
 async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;return}NV.busy=true;NV.again=false;
-  try{nvCatchUp();const now=Date.now(),fut=await futureAlerts(now,NV_DAYS,DB.alerted,()=>new Promise(r=>setTimeout(r,0)));
+  try{nvCatchUp();
+    /* nothing changed since the last plan (same items, settings, calendar, day and alerts)? then there's no work to do */
+    const fp=DB.items.length+'|'+DB.items.reduce((h,t)=>(h*31+(t.updated||0)%1e9)%2147483647,7)+'|'+JSON.stringify(SET())+'|'+(typeof CAL!=='undefined'?CAL.loaded+'|'+JSON.stringify(calPrefs()):'')+'|'+dkey(new Date())+'|'+Object.keys(DB.alerted).length;
+    if(fp===NV.fp&&Date.now()-NV.last<6*36e5&&NV.count){NV.skipped=(NV.skipped||0)+1;return}
+    const now=Date.now(),fut=await futureAlerts(now,NV_DAYS,DB.alerted,()=>new Promise(r=>setTimeout(r,0)));
     /* several alerts in the same minute become one notification, like in the app */
     const by=new Map();for(const f of fut){const m=Math.floor(f.at/60e3);if(!by.has(m))by.set(m,[]);by.get(m).push(f)}
     const notes=[];for(const [m,g] of [...by.entries()].sort((a,b)=>a[0]-b[0])){if(notes.length>=NV_MAX)break;const at=m*60e3+1000;
@@ -2110,7 +2131,7 @@ async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;r
     const fresh=notes.filter(n=>{const p=prevById.get(n.id);return!p||p.at!==n.at||p.title!==n.title||p.body!==n.body||!(pend.notifications||[]).some(x=>+x.id===n.id)});
     if(fresh.length)await NV.LN.schedule({notifications:fresh.map(n=>({id:n.id,title:'🐾 '+n.title,body:n.body||'',schedule:{at:new Date(n.at),allowWhileIdle:true},
       actionTypeId:n.type||undefined,channelId:'alerts',smallIcon:'ic_stat_purr',iconColor:'#ff9a62',extra:{keys:n.keys,item:n.item||null,step:n.step||null}}))});
-    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body})));NV.last=Date.now();NV.count=notes.length;NV.until=notes.length?notes[notes.length-1].at:0;NV.full=notes.length>=NV_MAX;NV.err=null;
+    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body})));NV.last=Date.now();NV.count=notes.length;NV.fp=fp;NV.until=notes.length?notes[notes.length-1].at:0;NV.full=notes.length>=NV_MAX;NV.err=null;
   }catch(e){NV.err=String(e&&e.message||e)}finally{NV.busy=false;if(sheetMode==='menu'&&$('nvst'))$('nvst').textContent=nvLabel();if(NV.again)nvSoon(300)}}
 function nvLabel(){if(!NV.on)return'';if(NV.perm&&NV.perm!=='granted')return'⚠️ Notifications are blocked – allow them in Android Settings → Apps → Purrminders → Notifications.';
   return NV.err?'⚠️ '+NV.err:NV.last?'✅ '+NV.count+' alarm'+(NV.count===1?'':'s')+' set'+(NV.full&&NV.until?' up to '+fmtDay(new Date(NV.until))+' (that\u2019s the limit \u2013 opening the app tops them up)':' for the next '+NV_DAYS+' days. Open the app at least once a week to keep them topped up')+'.':'Setting alarms…'}
@@ -2152,7 +2173,7 @@ function calDay(ms,allDay){const d=new Date(ms);return allDay?new Date(d.getUTCF
 async function calLoad(ask){if(!calAvailable()||!calPrefs().on||CAL.busy)return;CAL.busy=true;CAL.P=window.Capacitor.Plugins.CapacitorCalendar;
   try{
     if(ask||CAL.perm!=='granted'){const r=await (CAL.P.requestReadOnlyCalendarAccess?CAL.P.requestReadOnlyCalendarAccess():CAL.P.requestPermission({scope:'readCalendar'}));CAL.perm=r&&r.result}
-    if(CAL.perm!=='granted'){CAL.events=[];CAL.err=null;return}
+    if(CAL.perm!=='granted'){CAL.events=[];CAL.cals=[];CAL.err=null;try{localStorage.removeItem(KEY+'calcache')}catch(e){}return}/* access taken away: forget the stored copy too */
     const cl=await CAL.P.listCalendars();const arr=x=>Array.isArray(x)?x:(x&&Array.isArray(x.result)?x.result:(x&&Array.isArray(x.calendars)?x.calendars:(x&&Array.isArray(x.events)?x.events:[])));
     CAL.cals=arr(cl).map(c=>({id:String(c.id),title:c.title||c.internalTitle||'Calendar',color:c.color||'#7fe0a8',account:c.accountName||''}));
     const hidden=new Set(calPrefs().hidden.map(String)),names=new Map(CAL.cals.map(c=>[c.id,c])),now=new Date(),from=addD(day0(now),-7).getTime(),to=addD(day0(now),62).getTime();
@@ -2171,7 +2192,7 @@ function calRestore(){try{const c=JSON.parse(localStorage.getItem(KEY+'calcache'
 /* Purrminders' own reminders for calendar events: timed events 1 hour before, all-day events at your morning time */
 function calAlarms(fromMs,toMs){if(!calPrefs().on||calPrefs().alerts===false)return[];const out=[];
   for(const e of CAL.events){let at;if(e.allDay){at=fromKey(dkey(e.start),winTime('morning')).getTime()}else at=e.start.getTime()-60*60e3;
-    if(at>fromMs&&at<=toMs){const tm=e.allDay?'today, all day':'at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()));out.push({k:'cal|'+e.id+'|'+e.start.getTime(),at,title:'Sesame: '+e.title,body:(e.allDay?'Today, all day':'In 1 hour \u00b7 '+tm.replace('at ',''))+(e.where?' \u00b7 '+e.where:'')+' \u00b7 from your calendar'})}}
+    if(at>fromMs&&at<=toMs){const tm=e.allDay?'today, all day':'at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()));out.push({k:'cal|'+dkey(e.start)+'|'+e.id+'|'+e.start.getTime(),at,/* date second, so old entries get tidied away like the rest */title:'Sesame: '+e.title,body:(e.allDay?'Today, all day':'In 1 hour \u00b7 '+tm.replace('at ',''))+(e.where?' \u00b7 '+e.where:'')+' \u00b7 from your calendar'})}}
   return out}
 function calOn(d){if(!CAL.events.length)return[];const a=day0(d).getTime(),b=addD(day0(d),1).getTime();return CAL.events.filter(e=>e.start.getTime()<b&&e.end.getTime()>=a)}
 function calWhen(e,d){if(e.allDay)return'all day';const s=e.start,sameDay=dkey(s)===dkey(d);return(sameDay?fmtTime(pad(s.getHours())+':'+pad(s.getMinutes())):'continues')}
