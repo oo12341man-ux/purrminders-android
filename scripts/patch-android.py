@@ -9,7 +9,8 @@ perms = ['<uses-permission android:name="android.permission.POST_NOTIFICATIONS" 
          '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
          '<uses-permission android:name="android.permission.WAKE_LOCK" />',
          '<uses-permission android:name="android.permission.VIBRATE" />',
-         '<uses-permission android:name="android.permission.CAMERA" />']
+         '<uses-permission android:name="android.permission.CAMERA" />',
+         '<uses-permission android:name="android.permission.READ_CALENDAR" />']
 add = '\n    '.join(p for p in perms if p.split('"')[1] not in s)
 s = s.replace('</manifest>', '    ' + add + '\n</manifest>') if add else s
 open(man, 'w').write(s)

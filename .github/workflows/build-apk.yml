@@ -20,6 +20,12 @@ jobs:
           java-version: 21
       - name: Install
         run: npm install --no-audit --no-fund
+      - name: Calendar add-on matching this Capacitor version
+        run: |
+          CAP=$(node -p "require('@capacitor/core/package.json').version.split('.')[0]")
+          echo "Capacitor $CAP"
+          npm install --no-audit --no-fund "@ebarooni/capacitor-calendar@^$CAP" || npm install --no-audit --no-fund "@ebarooni/capacitor-calendar@^$((CAP-1))"
+          node -p "'calendar add-on ' + require('@ebarooni/capacitor-calendar/package.json').version"
       - name: Prepare app files
         run: npm run prepare-www
       - name: Create Android project

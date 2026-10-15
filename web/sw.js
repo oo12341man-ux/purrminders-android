@@ -1,5 +1,5 @@
 /* Purrminders service worker: works offline, and receives things shared from other apps */
-const CACHE='bloopville-v21',VOICE='bloopville-voice-v1';
+const CACHE='bloopville-v22',VOICE='bloopville-voice-v1';
 const SHELL=['./','index.html','config.js','manifest.webmanifest','icon-192.png','icon-512.png','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>Promise.all(SHELL.map(u=>c.add(u).catch(()=>{})))));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE&&k!==VOICE).map(k=>caches.delete(k)))));self.clients.claim()});
