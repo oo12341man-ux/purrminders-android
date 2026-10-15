@@ -1,0 +1,57 @@
+name: Build Purrminders APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Prepare app files
+        run: npm run prepare-www
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+          python3 scripts/patch-android.py
+      - name: Signing key
+        env:
+          KS: ${{ secrets.PURR_KEYSTORE_B64 }}
+          KP: ${{ secrets.PURR_KEYSTORE_PASSWORD }}
+        run: |
+          # uses repo secrets if you add them later, otherwise the key kept in this private repo
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/purr.jks"; else cp signing/purrminders-signing.jks "$RUNNER_TEMP/purr.jks"; fi
+          if [ -z "$KP" ]; then KP="$(cat signing/keystore-password.txt)"; fi
+          echo "::add-mask::$KP"
+          echo "PURR_KEYSTORE=$RUNNER_TEMP/purr.jks" >> "$GITHUB_ENV"
+          echo "PURR_KEYSTORE_PASSWORD=$KP" >> "$GITHUB_ENV"
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          ls -la app/build/outputs/apk/release/
+          cp app/build/outputs/apk/release/app-release.apk ../Purrminders-1.0.${{ github.run_number }}.apk
+      - name: Publish to Releases (easy download on your phone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" "Purrminders-1.0.${{ github.run_number }}.apk" --title "Purrminders 1.0.${{ github.run_number }}" --notes "Install this APK on your Android phone." --repo "${{ github.repository }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Purrminders-apk
+          path: Purrminders-*.apk
+          retention-days: 30

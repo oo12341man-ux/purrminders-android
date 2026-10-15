@@ -1,0 +1,9 @@
+{
+  "appId": "com.purrminders.cats",
+  "appName": "Purrminders",
+  "webDir": "www",
+  "android": { "backgroundColor": "#1c1520" },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_purr", "iconColor": "#ff9a62" }
+  }
+}

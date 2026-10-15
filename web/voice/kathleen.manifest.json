@@ -1,0 +1,21 @@
+{
+ "config": "kathleen.json",
+ "dict": "kathleen-dict.json",
+ "extra": "kathleen-extra.json",
+ "parts": [
+  "kathleen.onnx.part00",
+  "kathleen.onnx.part01",
+  "kathleen.onnx.part02",
+  "kathleen.onnx.part03",
+  "kathleen.onnx.part04",
+  "kathleen.onnx.part05",
+  "kathleen.onnx.part06",
+  "kathleen.onnx.part07",
+  "kathleen.onnx.part08"
+ ],
+ "size": 63104526,
+ "tuning": {
+  "rate": 1.19,
+  "speed": 1.03
+ }
+}
