@@ -20,5 +20,5 @@ python3 scripts/patch-android.py
 } | tee build-info.txt
 echo "== gradle"; (cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon --stacktrace)
 cp android/app/build/outputs/apk/release/app-release.apk "Purrminders-1.0.$N.apk"
-unzip -l "Purrminders-1.0.$N.apk" | grep -c "\.so$" | xargs -I{} echo "native libraries in APK: {}" | tee -a build-info.txt
+SO=$(unzip -l "Purrminders-1.0.$N.apk" | grep -c "\.so$" || true); echo "native libraries in APK: $SO (none = nothing to adjust for 16 KB-page phones)" | tee -a build-info.txt
 echo "== done"

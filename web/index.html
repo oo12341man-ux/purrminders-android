@@ -2153,12 +2153,13 @@ async function calLoad(ask){if(!calAvailable()||!calPrefs().on||CAL.busy)return;
   try{
     if(ask||CAL.perm!=='granted'){const r=await (CAL.P.requestReadOnlyCalendarAccess?CAL.P.requestReadOnlyCalendarAccess():CAL.P.requestPermission({scope:'readCalendar'}));CAL.perm=r&&r.result}
     if(CAL.perm!=='granted'){CAL.events=[];CAL.err=null;return}
-    const cl=await CAL.P.listCalendars();CAL.cals=((cl&&cl.result)||[]).map(c=>({id:String(c.id),title:c.title||c.internalTitle||'Calendar',color:c.color||'#7fe0a8',account:c.accountName||''}));
+    const cl=await CAL.P.listCalendars();const arr=x=>Array.isArray(x)?x:(x&&Array.isArray(x.result)?x.result:(x&&Array.isArray(x.calendars)?x.calendars:(x&&Array.isArray(x.events)?x.events:[])));
+    CAL.cals=arr(cl).map(c=>({id:String(c.id),title:c.title||c.internalTitle||'Calendar',color:c.color||'#7fe0a8',account:c.accountName||''}));
     const hidden=new Set(calPrefs().hidden.map(String)),names=new Map(CAL.cals.map(c=>[c.id,c])),now=new Date(),from=addD(day0(now),-7).getTime(),to=addD(day0(now),62).getTime();
     const ev=await CAL.P.listEventsInRange({from,to});
-    CAL.events=((ev&&ev.result)||[]).filter(e=>e&&e.startDate!=null&&!hidden.has(String(e.calendarId))).map(e=>{const all=!!e.isAllDay,s=calDay(+e.startDate,all);let en=e.endDate!=null?calDay(+e.endDate,all):s;
+    CAL.events=arr(ev).filter(e=>e&&e.startDate!=null&&!hidden.has(String(e.calendarId))).map(e=>{const all=!!e.isAllDay,s=calDay(+e.startDate,all);let en=e.endDate!=null?calDay(+e.endDate,all):s;
         if(all&&en>s)en=new Date(en.getTime()-1);/* an all-day event "ends" at the next midnight */
-        const c=names.get(String(e.calendarId));return{id:String(e.id),title:String(e.title||'(no title)').slice(0,120),start:s,end:en<s?s:en,allDay:all,where:e.location?String(e.location).slice(0,80):'',cal:c?c.title:'',color:e.color||(c&&c.color)||'#7fe0a8'}})
+        const c=names.get(String(e.calendarId));return{id:String(e.id),title:String(e.title||e.name||'(no title)').slice(0,120),start:s,end:en<s?s:en,allDay:all,where:e.location?String(e.location).slice(0,80):'',cal:c?c.title:'',color:e.color||(c&&c.color)||'#7fe0a8'}})
       .sort((a,b)=>a.start-b.start).slice(0,500);
     CAL.loaded=Date.now();CAL.err=null;calSave();
   }catch(e){CAL.err=String(e&&e.message||e)}
