@@ -1,5 +1,5 @@
 /* Purrminders service worker: works offline, and receives things shared from other apps */
-const CACHE='bloopville-v20',VOICE='bloopville-voice-v1';
+const CACHE='bloopville-v21',VOICE='bloopville-voice-v1';
 const SHELL=['./','index.html','config.js','manifest.webmanifest','icon-192.png','icon-512.png','https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>Promise.all(SHELL.map(u=>c.add(u).catch(()=>{})))));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE&&k!==VOICE).map(k=>caches.delete(k)))));self.clients.claim()});
@@ -21,3 +21,5 @@ self.addEventListener('fetch',e=>{const r=e.request,u=new URL(r.url);
   if(u.origin!==location.origin&&!/cdnjs\.cloudflare\.com|fonts\.(googleapis|gstatic)\.com/.test(u.host))return;
   e.respondWith(caches.open(CACHE).then(async c=>{const hit=await c.match(r,{ignoreSearch:u.origin===location.origin&&u.pathname.endsWith('/')});
     const net=fetch(r).then(res=>{if(res&&(res.ok||res.type==='opaque'))c.put(r,res.clone());return res}).catch(()=>hit);return hit||net}))});
+/* tapping a cat notification opens (or brings back) the app */
+self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{for(const c of cs)if('focus' in c)return c.focus();return self.clients.openWindow('./')}))});

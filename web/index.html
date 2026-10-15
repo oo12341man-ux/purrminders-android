@@ -1236,7 +1236,9 @@ function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);if(!p
   if(!(typeof NV!=='undefined'&&NV.on&&NV.count))beep();for(const c of new Set(fired.map(f=>f.cat))){const C=cats.find(x=>x.id===c);if(C)C.alertT=clock.getElapsedTime()}
   const more=fired.length-1;say(fired[0].msg+(more?' (and '+more+' more – see Agenda)':''));if(!(typeof NV!=='undefined'&&NV.on))notifyLocal(more?fired.length+' things need you':fired[0].title,more?fired.slice(0,3).map(f=>f.title).join(' · ')+(more>2?' …':''):fired[0].body);
   const ks=Object.keys(DB.alerted);if(ks.length>400){const cut=dkey(addD(now,-45));for(const k of ks)if((k.split('|')[1]||'')<cut)delete DB.alerted[k]}persist()}
-function notifyLocal(title,body){try{if('Notification'in window&&Notification.permission==='granted'&&document.hidden)new Notification(title,{body})}catch(e){}}
+function notifyLocal(title,body){try{if(!('Notification'in window)||Notification.permission!=='granted'||!document.hidden)return;
+  /* iPhone home-screen apps (and Android Chrome) only show notifications through the service worker */
+  if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body,icon:'icon-192.png',tag:'purr-'+Date.now()})).catch(()=>{try{new Notification(title,{body})}catch(e){}});else new Notification(title,{body})}catch(e){}}
 
 /* ===================== office boards ===================== */
 function redraw(mesh,f){if(!mesh||!mesh.material||!mesh.material.map)return;const c=mesh.material.map.image,x=c.getContext('2d');f(x,c.width,c.height);mesh.material.map.needsUpdate=true}
