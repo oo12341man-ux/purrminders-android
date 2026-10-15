@@ -21,8 +21,9 @@ for d in os.listdir('android-res'):
         shutil.copy(os.path.join('android-res', d, f), os.path.join(res, d, f))
 g = 'android/app/build.gradle'
 s = open(g).read()
-s = re.sub(r'versionCode \d+', 'versionCode %d' % run, s)
-s = re.sub(r'versionName "[^"]*"', 'versionName "1.0.%d"' % run, s)
+s, n1 = re.subn(r'versionCode(\s*=?\s*)\d+', lambda m: 'versionCode%s%d' % (m.group(1), run), s)
+s, n2 = re.subn(r'versionName(\s*=?\s*)"[^"]*"', lambda m: 'versionName%s"1.0.%d"' % (m.group(1), run), s)
+if not (n1 and n2): sys.exit('could not set the app version in build.gradle')
 if 'signingConfigs' not in s:
     sign = '''
     signingConfigs {
@@ -35,6 +36,7 @@ if 'signingConfigs' not in s:
     }
 '''
     s = s.replace('android {', 'android {' + sign, 1)
-    s = re.sub(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig signingConfigs.release', s, 1)
+    s, n3 = re.subn(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig = signingConfigs.release', s, 1)
+    if not n3: sys.exit('could not add release signing to build.gradle')
 open(g, 'w').write(s)
 print('patched: permissions, icons, version 1.0.%d, signing' % run)

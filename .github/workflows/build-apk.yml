@@ -18,21 +18,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - name: Install
-        run: npm install --no-audit --no-fund
-      - name: Calendar add-on matching this Capacitor version
-        run: |
-          CAP=$(node -p "require('@capacitor/core/package.json').version.split('.')[0]")
-          echo "Capacitor $CAP"
-          npm install --no-audit --no-fund "@ebarooni/capacitor-calendar@^$CAP" || npm install --no-audit --no-fund "@ebarooni/capacitor-calendar@^$((CAP-1))"
-          node -p "'calendar add-on ' + require('@ebarooni/capacitor-calendar/package.json').version"
-      - name: Prepare app files
-        run: npm run prepare-www
-      - name: Create Android project
-        run: |
-          npx cap add android
-          npx cap sync android
-          python3 scripts/patch-android.py
       - name: Signing key
         env:
           KS: ${{ secrets.PURR_KEYSTORE_B64 }}
@@ -46,18 +31,23 @@ jobs:
           echo "PURR_KEYSTORE_PASSWORD=$KP" >> "$GITHUB_ENV"
       - name: Build APK
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
-          ls -la app/build/outputs/apk/release/
-          cp app/build/outputs/apk/release/app-release.apk ../Purrminders-1.0.${{ github.run_number }}.apk
+          set -o pipefail
+          bash scripts/build.sh 2>&1 | tee build.log
       - name: Publish to Releases (easy download on your phone)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v1.0.${{ github.run_number }}" "Purrminders-1.0.${{ github.run_number }}.apk" --title "Purrminders 1.0.${{ github.run_number }}" --notes "Install this APK on your Android phone." --repo "${{ github.repository }}"
+          gh release create "v1.0.${{ github.run_number }}" "Purrminders-1.0.${{ github.run_number }}.apk" build-info.txt --title "Purrminders 1.0.${{ github.run_number }}" --notes-file build-info.txt --repo "${{ github.repository }}"
       - uses: actions/upload-artifact@v4
         with:
           name: Purrminders-apk
           path: Purrminders-*.apk
           retention-days: 30
+      - name: Save the build log (readable without GitHub's log viewer)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          touch build.log
+          tail -c 900000 build.log > build-log.txt
+          gh release create "log-${{ github.run_number }}" build-log.txt --prerelease --title "Build log ${{ github.run_number }}" --notes "Build log for run ${{ github.run_number }} (${{ job.status }})" --repo "${{ github.repository }}" || true

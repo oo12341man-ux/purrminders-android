@@ -6,30 +6,30 @@
 <title>Purrminders</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#2a1f2d;--card:#fffaf2;--line:#2a1f2d;--accent:#ff9a62;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{--ink:#2a1f2d;--card:#fffaf2;--line:#2a1f2d;--accent:#ff9a62;box-sizing:border-box;padding-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));padding-bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#fff3e6;--card:#2b2433;--line:#120c16}}
 :root[data-theme="dark"]{--ink:#fff3e6;--card:#2b2433;--line:#120c16}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html{scroll-padding-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px))}
 html,body{height:100%;margin:0;overflow:hidden;background:#1b1420;color:var(--ink);font-family:Fredoka,system-ui,sans-serif}
 canvas{display:block;touch-action:none;position:fixed;inset:0}
 .card{background:var(--card);border:2.5px solid var(--line);border-radius:14px;box-shadow:3px 3px 0 var(--line)}
-#top{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+#top{position:fixed;left:12px;right:12px;top:calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 10px);display:flex;justify-content:space-between;gap:8px;pointer-events:none}
 #top>div{padding:6px 12px;font-weight:600;font-size:15px}
-#ctl{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-direction:column;gap:7px;align-items:stretch;padding:10px;width:170px}
+#ctl{position:fixed;right:12px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 14px);display:flex;flex-direction:column;gap:7px;align-items:stretch;padding:10px;width:170px}
 #ctl button{font:inherit;font-weight:500;font-size:14px;background:var(--accent);color:#2a1f2d;border:2.5px solid #2a1f2d;border-radius:10px;padding:6px 10px;cursor:pointer}
 #ctl button[aria-pressed=true]{background:#8fdcff}
 #ctl .prow{display:flex;gap:5px}#ctl .prow button{flex:1;padding:6px 2px;font-size:13px;background:#9fd6bd}#ctl .prow button[aria-pressed=true]{background:#ff8fab}
 #ctl label{font-size:13px;display:flex;flex-direction:column;gap:3px}
 input[type=range]{accent-color:var(--accent);width:100%}
-#joy{position:fixed;left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:112px;height:112px;border-radius:50%;border:3px solid #2a1f2d;background:rgba(255,250,242,.35);touch-action:none}
+#joy{position:fixed;left:18px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 18px);width:112px;height:112px;border-radius:50%;border:3px solid #2a1f2d;background:rgba(255,250,242,.35);touch-action:none}
 #knob{position:absolute;left:33px;top:33px;width:40px;height:40px;border-radius:50%;background:var(--accent);border:3px solid #2a1f2d;pointer-events:none}
 #clock{white-space:nowrap;font-size:14px;max-width:calc(100vw - 150px);overflow:hidden;text-overflow:ellipsis}
-#tbtn{position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 54px);display:flex;gap:6px}
+#tbtn{position:fixed;right:12px;top:calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 54px);display:flex;gap:6px}
 #tbtn button{font:inherit;font-weight:600;font-size:14px;color:var(--ink);padding:6px 12px;cursor:pointer}
-#playbar{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 92px);display:flex;flex-direction:column;gap:8px}
+#playbar{position:fixed;right:12px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 92px);display:flex;flex-direction:column;gap:8px}
 #playbar button{width:46px;height:46px;border-radius:50%;border:2.5px solid #2a1f2d;background:var(--card);font-size:20px;cursor:pointer;box-shadow:2px 2px 0 #2a1f2d}
 #playbar button[aria-pressed=true]{background:#ff8fab}
-#qbar{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);padding:8px}
+#qbar{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));padding:8px;z-index:6}
 .qrow{display:flex;gap:6px}#q{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:transparent;border:2px solid var(--line);border-radius:10px;padding:8px 10px}
 #qadd,.wide{font:inherit;font-weight:600;background:var(--accent);color:#2a1f2d;border:2.5px solid #2a1f2d;border-radius:10px;padding:8px 14px;cursor:pointer}
 .wide{width:100%;margin-top:8px}.ghost{font:inherit;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px;margin-top:8px;width:100%;cursor:pointer}
@@ -38,7 +38,7 @@ input[type=range]{accent-color:var(--accent);width:100%}
 .chip.on{background:var(--accent);color:#2a1f2d;border-color:#2a1f2d}.pv{margin:6px 2px;font-size:15px}.pv small{display:block;opacity:.75}.pv em{display:block;font-size:13px;color:#d9534f}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;margin-right:4px}
 .two{display:flex;gap:8px}.two>*{flex:1}
-#sheet{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);max-height:62%;overflow-y:auto;padding:14px 14px 16px;display:none;z-index:5}
+#sheet{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));max-height:62%;overflow-y:auto;padding:14px 14px 16px;display:none;z-index:5}
 #sheet.open{display:block}#sheet h2{margin:0 30px 8px 0;font-size:20px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}#sheet h2 small{font-size:13px;font-weight:400;opacity:.7}
 #sheet h3{margin:12px 0 4px;font-size:14px;opacity:.75}#sheet .x{position:absolute;right:10px;top:8px;font-size:22px;background:none;border:0;color:var(--ink);cursor:pointer}
 .tl{list-style:none;margin:0;padding:0}.tl li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
@@ -50,10 +50,10 @@ input[type=range]{accent-color:var(--accent);width:100%}
 body.busy #playbar{display:none}
 .qic{width:40px;flex:none;font-size:18px;background:transparent;border:2px solid var(--line);border-radius:10px;cursor:pointer}.qic.on{background:#ff8fab;border-color:#2a1f2d;animation:pulse 1s infinite}
 @media (max-width:360px){.qic{width:32px;font-size:16px}#qadd{padding:8px 9px}.qrow{gap:4px}#qbar{left:6px;right:6px;padding:6px}}
-#pepper{position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 60px);max-height:75%;overflow-y:auto;z-index:8;padding:14px;display:none;border-color:#2a1f2d}#pepper.open{display:block}
+#pepper{position:fixed;left:10px;right:10px;top:calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 60px);max-height:75%;overflow-y:auto;z-index:8;padding:14px;display:none;border-color:#2a1f2d}#pepper.open{display:block}
 #pepper h2{margin:0 0 4px;font-size:19px}.pex{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.pex input{font:inherit;font-size:15px;color:var(--ink);background:transparent;border:2px solid var(--line);border-radius:8px;padding:4px}
 .ck.sm{width:22px;height:22px;font-size:12px;vertical-align:middle}.ck.sm.on{background:var(--accent)}.steps li{padding:3px 0}#sheet textarea{font:inherit;font-size:15px;color:var(--ink);background:transparent;border:2px solid var(--line);border-radius:9px;padding:6px}
-#brief{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:9;padding:14px;display:none}#brief.open{display:block}
+#brief{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));z-index:9;padding:14px;display:none}#brief.open{display:block}
 #brief h2{margin:0 0 6px;font-size:18px}#brief .cap{font-size:20px;line-height:1.35;margin:6px 0 10px;min-height:2.7em}.bctl{display:flex;gap:6px}.bctl .mini,#brief .mini{font:inherit;font-size:16px;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer}
 #brief .kvbar{height:10px;border:2px solid var(--line);border-radius:8px;overflow:hidden;margin:6px 0}#brief .kvbar i{display:block;height:100%;background:var(--accent);transition:width .3s}#brief .kvs{margin:8px 0 0}
 #brief .big{font-size:18px;padding:14px}.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.calg em{font-style:normal;text-align:center;font-size:12px;opacity:.6}
@@ -72,10 +72,12 @@ body.busy #playbar{display:none}
 .heat{display:grid;grid-template-columns:repeat(7,22px);gap:4px;margin:4px 0}.heat b{font-size:11px;text-align:center;opacity:.6}.heat i,.legend i{display:inline-block;width:22px;height:22px;border-radius:6px;background:var(--line);opacity:.35}
 .heat i.done,.legend i.done{background:#7fc86b;opacity:1}.heat i.part,.legend i.part{background:#ffd166;opacity:1}.heat i.miss,.legend i.miss{background:#ef8a8a;opacity:1}.heat i.todo{outline:2px solid var(--accent);opacity:.6}.heat i.future{opacity:.1}
 .legend{display:block;font-size:11px}.legend i{width:10px;height:10px;border-radius:3px;margin:0 2px 0 6px}.days{display:flex;flex-wrap:wrap;gap:4px 10px}.days label{margin-top:4px!important}
-#bubble{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);transform:translateX(-50%);padding:8px 14px;font-weight:500;max-width:80vw;text-align:center;display:none}
+#bubble{position:fixed;left:50%;top:calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px)) + 104px);transform:translateX(-50%);padding:8px 14px;font-weight:500;max-width:80vw;text-align:center;display:none}
 :focus-visible{outline:3px solid #8fdcff;outline-offset:2px}
 #gsdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:8px;vertical-align:middle;background:transparent}#gsdot.ok{background:#4cd18a}#gsdot.busy{background:#f5c04a}#gsdot.err{background:#e94b5a}
 #ask{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(10,8,20,.45);padding:16px}#ask.open{display:flex}#ask .card{max-width:340px;width:100%;padding:18px}#ask p{margin:0 0 14px;font-size:17px;line-height:1.4}#ask #askyes.danger{background:#e94b5a;color:#fff}
+body.kbopen #sheet{max-height:calc(100% - var(--kb,0px) - 70px)}body.kbopen #playbar{display:none}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}.tgrid label{min-width:0}.tgrid input{width:100%;min-width:0;box-sizing:border-box}#sheet{overflow-x:hidden}#sheet input,#sheet select{max-width:100%;box-sizing:border-box}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2f6f73">
@@ -96,7 +98,10 @@ body.busy #playbar{display:none}
 <script src="config.js" onerror="0"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio||1,2));
+/* battery saver (on unless switched off): fewer redraws, especially when you're not touching the screen, and a slightly softer picture */
+const PWR={saver:(()=>{try{const c=window.BLOOPVILLE_CONFIG||{},v=localStorage.getItem('bloopville:'+(c.copyId||'me')+':saver');return v!=='0'}catch(e){return true}})(),touch:performance.now(),last:0,n:0,drawn:0};
+PWR.ratio=()=>Math.min(devicePixelRatio||1,PWR.saver?1.5:2);
+const R=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});R.setPixelRatio(PWR.ratio());
 document.body.prepend(R.domElement);
 const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,1,.1,150);
 function fit(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
@@ -1231,7 +1236,9 @@ function alertPlan(now,alerted){const nt=nudgeTime(),out=[],ms=now.getTime();
     out.push({k,again:false,e})}
   return out}
 function alertText(p){const e=p.e,t=e.t,nm=t.title||t.name;return{cat:e.cat,msg:CATNAME[e.cat]+(p.again?' again: ':': ')+(e.step?e.step.label:nm+' – '+e.text),title:CATNAME[e.cat]+(p.again?' (reminder again)':': '+(e.step?e.step.label:nm)),body:p.again?nm+' – '+e.text:(e.step?'':e.text)}}
-function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);if(!plan.length)return;
+function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);
+  if(typeof calAlarms==='function')for(const c of calAlarms(now.getTime()-10*60e3,now.getTime()))if(!DB.alerted[c.k]){DB.alerted[c.k]=now.getTime();if(!(typeof NV!=='undefined'&&NV.on&&NV.count))beep();say('\ud83d\udcc6 '+c.title+' \u2013 '+c.body);greet('sesame');persist()}
+  if(!plan.length)return;
   for(const p of plan){DB.alerted[p.k]=now.getTime();if(typeof gsSeen==='function')gsSeen(p.k)}
   const fired=plan.map(alertText);
   /* one chime and one message per check, however many things came due */
@@ -1338,7 +1345,7 @@ function wireSheet(){$('sheet').querySelectorAll('[data-a]').forEach(b=>b.onclic
 function rerender(){if(sheetMode==='cat')openCat(sheetCat,true);else if(sheetMode==='agenda')openAgenda(true)}
 let agendaBack=false;
 function openCat(id,keep){sheetCat=id;sheetMode='cat';openSheet(catScreen(id));wireSheet();if(!keep){openRow=null;const C=cats.find(c=>c.id===id);if(C){sel=C;zoom=.3}else if(id==='jar'){sel=null;tgtGoal.set(.9,.5,.1);zoom=.3}}}
-function openAgenda(){sheetMode='agenda';sheetCat=null;const now=new Date(),E_=entries(now);let h='<h2>Agenda <small>'+now.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'})+'</small></h2>';
+function openAgenda(){sheetMode='agenda';sheetCat=null;const now=new Date(),E_=entries(now);let h='<h2>Agenda <small>'+now.toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'})+'</small></h2><input id="agq" type="search" placeholder="\ud83d\udd0d Search everything" autocomplete="off" aria-label="Search your items and calendar"><div id="agres"></div>';
   const grp=[['Needs attention','attention'],['Today','today'],['Coming up','soon']];let any=false;
   for(const[g,k]of grp){const it=E_.filter(e=>e.group===k);if(!it.length)continue;any=true;
     h+='<h3>'+g+'</h3><ul class="tl">'+it.map(e=>'<li class="'+(k==='attention'?'bad':'')+'"><span class="dot" style="background:'+DOT[e.cat]+'"></span>'+
@@ -1348,6 +1355,7 @@ function openAgenda(){sheetMode='agenda';sheetCat=null;const now=new Date(),E_=e
   if(typeof calOn==='function'&&CAL.events.length){const rows=[];for(let i=0;i<7;i++){const d=addD(day0(now),i);for(const e of calOn(d))if(i===0||dkey(e.start)===dkey(d)||e.allDay&&dkey(e.start)===dkey(d))rows.push([d,e])}
     if(rows.length){any=true;h+='<h3>From your calendar</h3><ul class="tl">'+rows.slice(0,25).map(([d,e])=>'<li><span class="dot" style="background:'+esc(e.color)+'"></span><div class="tt"><div>\ud83d\udcc6 '+esc(e.title)+'</div><small>'+esc(fmtDay(d,now)+' \u00b7 '+calWhen(e,d)+(e.where?' \u00b7 '+e.where:''))+'</small></div></li>').join('')+'</ul>'}}
   if(!any)h+='<p class="empty">All clear for the next week. Enjoy the quiet office!</p>';openSheet(h);wireSheet();
+  $('agq').oninput=e=>{const v=e.target.value.trim();$('agres').innerHTML=v.length>1?'<h3>Found</h3>'+resultsHTML(searchAll(v)):'';wireResults()};
   $('sheet').querySelectorAll('[data-a=go]').forEach(b=>b.onclick=()=>openCat(b.dataset.id));$('sheet').querySelectorAll('[data-a=snz]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=DB.items.find(x=>x.id===b.dataset.id);if(t)snoozeMenu(t,()=>openAgenda())})}
 /* forms */
 function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.assign({},pre||{},t||{});const F=[];
@@ -1384,9 +1392,10 @@ function openMenu(){sheetMode='menu';sheetCat=null;openSheet('<h2>'+esc(CFG.offi
   '<h3>Morning briefing</h3><label class="row"><input type="checkbox" id="bon"'+(SET().briefing===false?'':' checked')+'> Sesame briefs me the first time I open the app each day</label>'+
   '<label>Sesame\u2019s voice<select id="vmode"><option value="kathleen"'+(kvWanted()?' selected':'')+'>Kathleen (natural)</option><option value="phone"'+(kvWanted()?'':' selected')+'>Phone voice</option></select></label><p class="fine" id="kvst">'+esc(kvLabel())+'</p><button class="ghost" id="kvtest">\u25b6 Test Sesame\u2019s voice</button>'+
   (synth?'<label>Phone voice (backup)<select id="bvoice"><option value="">Automatic</option>'+synth.getVoices().filter(v=>/^en/i.test(v.lang)).map(v=>'<option'+(SET().voice===v.name?' selected':'')+'>'+esc(v.name)+'</option>').join('')+'</select></label>':'<p class="fine">This browser can\u2019t speak, so the briefing shows as captions.</p>')+
-  '<button class="wide" id="bnow">\u25b6 Play briefing now</button><h3>Your times</h3><div class="two">'+Object.keys(WIN_DEF).map(k=>'<label>'+WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+(k==='weekend'?' (Sat)':'')+'<input type="time" data-win="'+k+'" value="'+winTime(k)+'"></label>').join('')+'</div>'+
-  '<div class="two"><label>Quiet from<input type="time" id="qs" value="'+SET().quietStart+'"></label><label>Quiet until<input type="time" id="qe" value="'+SET().quietEnd+'"></label></div>'+
+  '<button class="wide" id="bnow">\u25b6 Play briefing now</button><h3>Your times</h3><div class="tgrid">'+Object.keys(WIN_DEF).map(k=>'<label>'+WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+(k==='weekend'?' (Sat)':'')+'<input type="time" data-win="'+k+'" value="'+winTime(k)+'"></label>').join('')+'</div>'+
+  '<div class="tgrid"><label>Quiet from<input type="time" id="qs" value="'+SET().quietStart+'"></label><label>Quiet until<input type="time" id="qe" value="'+SET().quietEnd+'"></label></div>'+
   '<label>Preview time of day<input id="time" type="range" min="0" max="23.9" step=".1" value="'+hour.toFixed(1)+'"></label><button class="wide" id="live">Back to live time</button>'+
+  '<label class="row"><input type="checkbox" id="pwr"'+(PWR.saver?' checked':'')+'> Battery saver (recommended \u2013 keeps the phone cool; animation is a little calmer)</label>'+
   '<label class="row"><input type="checkbox" id="lf"'+(lightFur()?' checked':'')+'> Lighter fur for slower phones (reloads)</label>'+
   (('Notification' in window)&&Notification.permission!=='granted'?'<button class="wide" id="np">Allow notifications</button>':'')+
   '<div class="two"><button class="wide" id="bk">Back up</button><button class="wide" id="rs">Restore backup</button></div><input type="file" id="rsf" accept="application/json" hidden>'+
@@ -1396,6 +1405,7 @@ function openMenu(){sheetMode='menu';sheetCat=null;openSheet('<h2>'+esc(CFG.offi
   $('kvtest').onclick=()=>{const t='Hi! I\u2019m Sesame. This is how I\u2019ll read your briefing every morning.';mrrp();if(kvWanted()){kvInit();if(KV.state==='ready'){kvPlay(t).catch(e=>say('Kathleen couldn\u2019t speak: '+e.message));return}if(KV.state==='loading'){say(kvLabel()+' \u2013 try again when it\u2019s ready.');return}}
     if(synth){const u=new SpeechSynthesisUtterance(t);u.pitch=1.6;u.rate=1.05;const v=pickVoice();if(v)u.voice=v;synth.cancel();synth.speak(u)}else say('No voice available in this browser.')};if($('bvoice'))$('bvoice').onchange=e=>{SET().voice=e.target.value||null;persist()};$('bnow').onclick=()=>startBriefing();
   $('time').oninput=e=>{live=false;hour=+e.target.value;applyTime(hour)};$('live').onclick=()=>{live=true;hour=nowH();applyTime(hour)};
+  $('pwr').onchange=e=>{PWR.saver=e.target.checked;try{localStorage.setItem(KEY+'saver',PWR.saver?'1':'0')}catch(_){}R.setPixelRatio(PWR.ratio());fit();R.shadowMap.autoUpdate=!PWR.saver;say(PWR.saver?'Battery saver on.':'Battery saver off \u2013 smoothest animation, uses more battery.')};
   $('lf').onchange=e=>{try{localStorage.setItem(KEY+'lightFur',e.target.checked?'1':'0')}catch(_){}location.reload()};
   if($('np'))$('np').onclick=()=>Notification.requestPermission().then(()=>openMenu());
   $('bk').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(DB,null,1)],{type:'application/json'}));a.download='purrminders-'+CFG.copyId+'-backup.json';document.body.appendChild(a);a.click();a.remove()};
@@ -1543,7 +1553,7 @@ function briefingScript(now){now=now||new Date();const seed=+dkey(now).replace(/
   if(od.length){say_(od.length===1?'One thing needs attention.':pickV(['First, a few things need attention.','Before anything else, these slipped.','Quick catch-up on things that are late.'],seed),'pepper');od.slice(0,5).forEach(e=>say_(line(e),e.cat));if(od.length>5)say_('And '+(od.length-5)+' more in your agenda.','pepper')}
   if(td.length){say_(pickV(['Here\u2019s today.','On today\u2019s list:','Today you\u2019ve got:'],seed+1));td.slice(0,8).forEach(e=>say_(line(e),e.cat));if(td.length>8)say_('Plus '+(td.length-8)+' more today.')}
   const cev=typeof calOn==='function'?calOn(now).filter(e=>e.allDay||e.end>now):[];
-  if(cev.length){say_(cev.length===1?'From your calendar today:':'From your calendar today, '+cev.length+' things:');cev.slice(0,5).forEach(e=>say_(e.title+(e.allDay?'.':' at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()))+'.')));if(cev.length>5)say_('And '+(cev.length-5)+' more in your calendar.')}
+  if(cev.length){say_(cev.length===1?'From your calendar today:':'From your calendar today, '+cev.length+' things:');cev.slice(0,5).forEach(e=>say_(e.title+(e.allDay?'.':' at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()))+'.'),'sesame',{cal:true}));if(cev.length>5)say_('And '+(cev.length-5)+' more in your calendar.')}
   if(up.length){say_(pickV(['Coming up:','Later this week:','Looking ahead:'],seed+2));up.slice(0,6).forEach(e=>say_(line(e),e.cat));if(up.length>6)say_('And '+(up.length-6)+' more in the next few days.')}
   if(!od.length&&!td.length&&!up.length&&!cev.length)say_(pickV(['Nothing on today. Enjoy the quiet!','A clear day! Treat yourself.','Nothing scheduled \u2013 the office is all yours.'],seed));
   const shown=Math.min(od.length,5)+Math.min(td.length,8)+Math.min(up.length,6),idea=shown<=10?ideaDue(now):null;if(idea)say_('From your ideas jar: '+idea.title+'. Want to make it happen?','sesame',{idea:idea.id});
@@ -1721,19 +1731,19 @@ function applyTime(h){
 }
 
 /* camera: tilted dollhouse view */
-const tgt=new THREE.Vector3(0,.6,1.6),tgtGoal=tgt.clone();let az=.45,el=.8,rad=0,zoom=1,follow=false;
+const tgt=new THREE.Vector3(0,.6,1.6),tgtGoal=tgt.clone();let az=.45,el=.8,rad=0,zoom=1,follow=false,azV=0,lastMv=0;
 const baseR=()=>{const a=innerWidth/innerHeight;return Math.max(23,8.4/(.364*a))};
 const ptrs=new Map();let drag=null,pinch0=0;const cv=R.domElement;
 const pd=()=>{const p=[...ptrs.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)};
 const clampZ=z=>Math.max(.25,Math.min(1.4,z));
-cv.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});cv.setPointerCapture(e.pointerId);
+cv.addEventListener('pointerdown',e=>{azV=0;lastMv=performance.now();ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});cv.setPointerCapture(e.pointerId);
   if(ptrs.size===1){drag={x:e.clientX,y:e.clientY,d:0};if(playMode&&playMode!=='ball'){const p=floorAt(e.clientX,e.clientY);if(p)toyP.copy(p)}}else{drag=null;pinch0=pd()}});
 cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size>=2){const d=pd();if(pinch0&&d){zoom=clampZ(zoom*pinch0/d);pinch0=d}return}
   if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.d+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;
   if(playMode&&playMode!=='ball'){const p=floorAt(e.clientX,e.clientY);if(p)toyP.copy(p);return}
-  az=Math.max(-1.3,Math.min(1.3,az-dx*.006));el=Math.max(.35,Math.min(1.25,el+dy*.004))});
-const up=e=>{ptrs.delete(e.pointerId);if(drag&&drag.d<8&&e.type==='pointerup')tapAt(e.clientX,e.clientY);drag=null;if(ptrs.size<2)pinch0=0};
+  const tn=performance.now(),mdt=Math.max(8,tn-lastMv)/1000;lastMv=tn;const dAz=-dx*.006;az+=dAz;azV=azV*.6+(dAz/mdt)*.4;el=Math.max(.35,Math.min(1.25,el+dy*.004))});
+const up=e=>{if(performance.now()-lastMv>90)azV=0;ptrs.delete(e.pointerId);if(drag&&drag.d<8&&e.type==='pointerup')tapAt(e.clientX,e.clientY);drag=null;if(ptrs.size<2)pinch0=0};
 cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
 cv.addEventListener('wheel',e=>{e.preventDefault();zoom=clampZ(zoom*(1+e.deltaY*.001))},{passive:false});
 const ray=new THREE.Raycaster(),pt=new THREE.Vector2();
@@ -1796,17 +1806,25 @@ handleShare();
 load();SET();track();hour=nowH();applyTime(hour);
 say(liveItems().length?'Tap a cat to see its desk. Double-tap to pet.':'Welcome! Type anything below \u2013 a habit, bill, expiry date, reminder or birthday \u2013 and the right cat takes it.');
 const clock=new THREE.Clock();
+function pwrActive(){return performance.now()-PWR.touch<20000||(typeof BRIEF!=='undefined'&&BRIEF.on)||(typeof playMode!=='undefined'&&!!playMode)||(typeof VAC!=='undefined'&&VAC.state!=='dock')||!!drag||ptrs.size>0}
 function frame(){
-  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  const pnow=performance.now();
+  if(PWR.saver){const gap=pwrActive()?1000/30:1000/12;if(pnow-PWR.last<gap-2){requestAnimationFrame(frame);return}}
+  PWR.last=pnow;PWR.n++;
+  if(PWR.saver){R.shadowMap.autoUpdate=false;if(PWR.n%3===0)R.shadowMap.needsUpdate=true}else R.shadowMap.autoUpdate=true;
+  const dt=Math.min(clock.getDelta(),PWR.saver?.12:.05),t=clock.elapsedTime;
   if(live){hour=nowH();if(Math.abs(hour-drawnH)>.016)applyTime(hour)}
+  if(!drag&&Math.abs(azV)>.02){az+=azV*dt;azV*=Math.pow(.04,dt);PWR.touch=pnow}else if(!drag)azV=0;
   if(sel)tgtGoal.set(sel.g.position.x,.8,sel.g.position.z);
   const rg=baseR()*zoom;rad=rad?rad+(rg-rad)*.12:rg;tgt.lerp(tgtGoal,.08);
   cam.position.set(tgt.x+Math.sin(az)*Math.cos(el)*rad,tgt.y+Math.sin(el)*rad,tgt.z+Math.cos(az)*Math.cos(el)*rad);
   cam.lookAt(tgt);
   walls.forEach(w=>w.g.visible=cam.position.x*w.nx+cam.position.z*w.nz<w.off);
   cats.forEach(C=>tickCat(C,dt,t));tickFx(dt,t);playFx(dt,t);vacFx(dt,t);healthFx(dt,t);
-  R.render(S,cam);requestAnimationFrame(frame);
+  R.render(S,cam);PWR.drawn++;requestAnimationFrame(frame);
 }
+['pointerdown','pointermove','keydown','wheel','touchstart'].forEach(ev=>addEventListener(ev,()=>{PWR.touch=performance.now()},{passive:true,capture:true}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)PWR.touch=performance.now()});
 
 /* ===================== Google sync & phone/email alerts (stage 5) ===================== */
 /* Your own Google script keeps a copy of your items so phone pushes and emails still arrive when the app is closed,
@@ -1972,18 +1990,36 @@ function gmContext(){const now=new Date(),L=[];
     if(t.kind==='person'){const r=PP.info(t,now);if(r.bday)x.nextBirthday=dkey(r.bday);if(r.since!=null)x.daysSinceTalked=r.since}
     if(t.gifts&&t.gifts.length)x.giftIdeas=t.gifts.slice(-3);L.push(x);if(L.length>=200)break}
   return L}
-const GM_ASK_SYS=`You are Sesame, the cheerful cat secretary in the user's reminders app. Answer the user's question using ONLY the items given (JSON). Be short: 1-3 friendly sentences, plain text, no lists or markdown. Use day names and dates like "Fri 17 Oct", times like "3:30 PM", money like "RM80". Add up amounts when asked. If the items don't contain the answer, say so kindly. Return JSON {"answer":"..."}.`;
-async function gmAsk(q){const o=await gmCall(GM_ASK_SYS,gmToday()+'\nItems: '+JSON.stringify(gmContext())+'\nQuestion: '+q,12000);const a=o&&typeof o.answer==='string'?o.answer.trim().slice(0,700):'';if(!a)throw new Error('no answer');return a}
+const GM_ASK_SYS=`You are Sesame, the cheerful cat secretary in the user's reminders app. Answer the user's question using ONLY the items and phone calendar events given (JSON). Calendar events are appointments too. Be short: 1-3 friendly sentences, plain text, no lists or markdown. Use day names and dates like "Fri 17 Oct", times like "3:30 PM", money like "RM80". Add up amounts when asked. If the items don't contain the answer, say so kindly. Return JSON {"answer":"..."}.`;
+function gmCalContext(){if(typeof CAL==='undefined'||!CAL.events.length||calPrefs().ai===false)return[];return CAL.events.slice(0,250).map(e=>({title:e.title,start:e.allDay?dkey(e.start):dkey(e.start)+' '+pad(e.start.getHours())+':'+pad(e.start.getMinutes()),end:e.allDay?dkey(e.end):dkey(e.end)+' '+pad(e.end.getHours())+':'+pad(e.end.getMinutes()),allDay:e.allDay||undefined,where:e.where||undefined,calendar:e.cal||undefined}))}
+async function gmAsk(q){const cal=gmCalContext();const o=await gmCall(GM_ASK_SYS,gmToday()+'\nItems: '+JSON.stringify(gmContext())+(cal.length?'\nPhone calendar events (past week to next 2 months): '+JSON.stringify(cal):'')+'\nQuestion: '+q,12000);const a=o&&typeof o.answer==='string'?o.answer.trim().slice(0,700):'';if(!a)throw new Error('no answer');return a}
 function showAnswer(q,a){sheetMode='answer';sheetCat=null;openSheet('<h2>💬 Sesame</h2><p class="fine">You asked: “'+esc(q)+'”</p><p style="font-size:17px;line-height:1.45">'+esc(a)+'</p><div class="two"><button class="ghost" id="aread">🔊 Read aloud</button><button class="wide" id="aag">Open agenda</button></div><p class="fine">Answered by Gemini from your items.</p>');
   $('aread').onclick=()=>{mrrp();if(kvWanted()&&KV.state==='ready'){kvPlay(a).catch(()=>{});return}if(synth){const u=new SpeechSynthesisUtterance(a);u.pitch=1.6;u.rate=1.05;const v=pickVoice();if(v)u.voice=v;synth.cancel();synth.speak(u)}};$('aag').onclick=()=>openAgenda();greet('sesame')}
 
 /* ---------- briefing wording ---------- */
 const GM_BRIEF_SYS=`You polish the lines of a cat secretary's spoken morning briefing so they sound warm, natural and varied, like a friendly assistant talking. Rules: return EXACTLY the same number of lines in the same order; keep every fact (names, numbers, amounts, dates, days, times) exactly as written; don't add new facts or advice; keep each line short and easy to say aloud; no emojis or markdown. Return JSON {"lines":["...", ...]}.`;
 const gmNums=s=>(String(s).match(/\d+(?:[.,:]\d+)*/g)||[]).sort().join('|');
-async function gmBrief(list){const o=await gmCall(GM_BRIEF_SYS,JSON.stringify({lines:list.map(l=>l.text)}),9000);const L=o&&Array.isArray(o.lines)?o.lines:null;if(!L||L.length!==list.length)throw new Error('lines didn’t match');
-  let changed=0;const out=list.map((l,i)=>{const t=typeof L[i]==='string'?L[i].trim():'';if(!t||t.length>l.text.length*2+80||gmNums(t)!==gmNums(l.text))return l;if(t!==l.text)changed++;return Object.assign({},l,{text:t,ai:true})});return{out,changed}}
+async function gmBrief(list){const hide=typeof calPrefs==='function'&&calPrefs().ai===false,idx=list.map((l,i)=>i).filter(i=>!(hide&&list[i].cal));
+  const o=await gmCall(GM_BRIEF_SYS,JSON.stringify({lines:idx.map(i=>list[i].text)}),9000);const L0=o&&Array.isArray(o.lines)?o.lines:null;if(!L0||L0.length!==idx.length)throw new Error('lines didn’t match');
+  const L=[];idx.forEach((i,j)=>L[i]=L0[j]);
+  let changed=0;const out=list.map((l,i)=>{if(L[i]==null)return l;const t=typeof L[i]==='string'?L[i].trim():'';if(!t||t.length>l.text.length*2+80||gmNums(t)!==gmNums(l.text))return l;if(t!==l.text)changed++;return Object.assign({},l,{text:t,ai:true})});return{out,changed}}
 function gmPolishBriefing(){if(!gmOn('brief')||!BRIEF.on||BRIEF.started||BRIEF.polishing)return;const list=BRIEF.list,stamp=BRIEF.stamp=Date.now();BRIEF.polishing=true;
   gmBrief(list).then(r=>{if(BRIEF.on&&!BRIEF.started&&BRIEF.stamp===stamp&&BRIEF.list===list&&r.changed){BRIEF.list=r.out;BRIEF.ai=true;briefCard()}}).catch(()=>{}).finally(()=>{BRIEF.polishing=false})}
+
+
+/* ---------- search: your items and your phone-calendar events ---------- */
+const SRCH_STOP=new Set('what whats when where which who how much many is are was were am do does did have has had i my me the a an any anything there to for of on in at by with about next this that coming up due my mine please show tell find search apa bila berapa ada tak saya ke di untuk yang nak bulan ni minggu hari'.split(' '));
+function srchWords(q){return String(q||'').toLowerCase().replace(/[^\p{L}\p{N}\s']/gu,' ').split(/\s+/).map(w=>w.replace(/'s$/,'')).filter(w=>w.length>=2&&!SRCH_STOP.has(w))}
+function searchAll(q){const ws=srchWords(q);if(!ws.length)return[];const out=[],now=new Date();
+  const score=txt=>{const t=' '+String(txt||'').toLowerCase()+' ';let n=0;for(const w of ws)if(t.includes(w))n+=t.includes(' '+w)?2:1;return n};
+  for(const t of liveItems()){const nm=t.title||t.name||'',n=score([nm,(t.notes||[]).join(' '),(t.gifts||[]).join(' '),t.where||'',CATNAME[t.cat],t.kind].join(' '));if(!n)continue;
+    let when='';try{when=draftSummary(t)}catch(e){}out.push({n:n+(score(nm)?3:0),title:nm,when,cat:t.cat,id:t.id,at:0})}
+  if(typeof CAL!=='undefined')for(const e of CAL.events){const n=score([e.title,e.where,e.cal].join(' '));if(!n)continue;
+    out.push({n:n+(score(e.title)?3:0),title:e.title,when:fmtDay(e.start,now)+' · '+(e.allDay?'all day':fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes())))+(e.where?' · '+e.where:''),cal:e,at:e.start.getTime()})}
+  const t0=day0(now).getTime();return out.sort((a,b)=>b.n-a.n||((a.at&&a.at<t0)-(b.at&&b.at<t0))||(a.at-b.at)).slice(0,30)}
+function resultsHTML(R_){return R_.length?'<ul class="tl">'+R_.map(r=>'<li><span class="dot" style="background:'+(r.cal?esc(r.cal.color):DOT[r.cat])+'"></span><div class="tt"'+(r.cal?'':' data-go="'+r.cat+'"')+'><div>'+(r.cal?'📆 ':'')+esc(r.title)+'</div><small>'+esc((r.cal?'From your calendar':CATNAME[r.cat])+(r.when?' · '+r.when:''))+'</small></div></li>').join('')+'</ul>':'<p class="empty">Nothing found.</p>'}
+function wireResults(){$('sheet').querySelectorAll('#sres [data-go],#agres [data-go]').forEach(b=>b.onclick=()=>openCat(b.dataset.go))}
+function showSearch(q,note){sheetMode='search';sheetCat=null;const R_=searchAll(q);openSheet('<h2>🔍 Search <small>“'+esc(q)+'”</small></h2>'+(note?'<p class="fine">'+esc(note)+'</p>':'')+'<div id="sres">'+resultsHTML(R_)+'</div><button class="wide" id="sag">Open agenda</button>');wireResults();$('sag').onclick=()=>openAgenda();return R_.length}
 
 /* ---------- the quick-add box ---------- */
 function gmThinking(on,txt){const box=$('qprev');if(on){box.innerHTML='<div class="pv"><b>✨ '+esc(txt||'Gemini is reading that…')+'</b> <small>The cats will take over if it’s slow.</small></div>';box.classList.add('open');document.body.classList.add('busy')}}
@@ -1991,9 +2027,9 @@ async function quickSubmit(){const q=$('q'),text=q.value.trim();if(!text&&!draft
   if(draft&&draft.ai&&draft.src===text)return commitDraft();
   if(GM.busy)return;
   const ask=gmLooksLikeQuestion(text);
-  if(ask){if(!gmOn('ask')){say(gmCred().key?'Asking needs Gemini ('+(GM.lastErr||'offline or limit reached')+'). Here’s your agenda.':'Add a Gemini key in Menu to ask the cats questions. Here’s your agenda.');q.value='';draft=null;renderDraft();return openAgenda()}
+  if(ask){if(!gmOn('ask')){q.value='';draft=null;renderDraft();if(showSearch(text,gmCred().key?'Gemini isn’t available right now ('+(GM.lastErr||'offline or limit reached')+'), so the cats searched for you:':'The cats searched for you. (Add a Gemini key in Menu for real answers.)'))return;say('Nothing found for that. Here’s your agenda.');return openAgenda()}
     GM.busy=true;gmThinking(true,'Sesame is looking through your items…');
-    try{const a=await gmAsk(text);q.value='';draft=null;renderDraft();showAnswer(text,a)}catch(e){renderDraft();say('Gemini couldn’t answer ('+e.message+'). Here’s your agenda.');openAgenda()}finally{GM.busy=false}return}
+    try{const a=await gmAsk(text);q.value='';draft=null;renderDraft();showAnswer(text,a)}catch(e){q.value='';draft=null;renderDraft();if(!showSearch(text,'Gemini couldn’t answer ('+e.message+'), so the cats searched for you:')){say('Nothing found. Here’s your agenda.');openAgenda()}}finally{GM.busy=false}return}
   if(!gmOn('add')){if(!draft&&text)draft=parseSmart(text);return commitDraft()}
   GM.busy=true;const builtIn=draft||(text?parseSmart(text):null);gmThinking(true);
   try{const d=await gmAdd(text);if(q.value.trim()!==text){renderDraft();return}
@@ -2066,6 +2102,8 @@ async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;r
       if(g.length===1){const f=g[0],x=alertText(f.p),t=f.p.e.t,step=!!f.p.e.step;
         notes.push({id:nvHash(f.k),title:x.title,body:x.body||x.msg,at,keys:[f.k],item:t.id,step:step?f.p.e.step.id:null,type:step?'step':t.kind==='bill'&&!t.autopay?'bill':t.kind==='habit'?'habit':t.autopay?'':'item'})}
       else{const titles=g.map(f=>alertText(f.p).title);notes.push({id:nvHash(g.map(f=>f.k).join(',')),title:g.length+' things need you',body:titles.slice(0,4).join(' · ')+(g.length>4?' …':''),at,keys:g.map(f=>f.k),type:''})}}
+    /* calendar reminders join the list, in time order */
+    if(typeof calAlarms==='function'){for(const c of calAlarms(now,now+NV_DAYS*864e5))if(!DB.alerted[c.k])notes.push({id:nvHash(c.k),title:c.title,body:c.body,at:Math.floor(c.at/60e3)*60e3+1000,keys:[c.k],type:''});notes.sort((a,b)=>a.at-b.at);notes.length=Math.min(notes.length,NV_MAX)}
     const pend=await NV.LN.getPending().catch(()=>({notifications:[]}));const want=new Set(notes.map(n=>n.id));
     const old=(pend.notifications||[]).filter(n=>!want.has(+n.id)).map(n=>({id:+n.id}));if(old.length)await NV.LN.cancel({notifications:old});
     const prevById=new Map(nvState().map(n=>[n.id,n]));
@@ -2106,7 +2144,7 @@ function nativeWire(){if(!NV.on)return;if($('nvex'))$('nvex').onclick=()=>NV.LN.
 /* ===================== Phone calendar (Android app): show your calendar's events inside Purrminders ===================== */
 /* Read-only. Events stay on this phone: they are never synced, emailed or sent to Gemini. Your calendar app keeps doing their alerts. */
 const CAL={on:false,P:null,events:[],cals:[],loaded:0,err:null,perm:null,busy:false};
-function calPrefs(){let p={};try{p=JSON.parse(localStorage.getItem(KEY+'cal'))||{}}catch(e){}return Object.assign({on:false,hidden:[]},p)}
+function calPrefs(){let p={};try{p=JSON.parse(localStorage.getItem(KEY+'cal'))||{}}catch(e){}return Object.assign({on:false,hidden:[],alerts:true,ai:true},p)}
 function calSetPrefs(p){try{localStorage.setItem(KEY+'cal',JSON.stringify(p))}catch(e){}}
 function calAvailable(){return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.CapacitorCalendar)}
 /* all-day events are stored at midnight UTC: read their date in UTC so they land on the right day */
@@ -2116,29 +2154,55 @@ async function calLoad(ask){if(!calAvailable()||!calPrefs().on||CAL.busy)return;
     if(ask||CAL.perm!=='granted'){const r=await (CAL.P.requestReadOnlyCalendarAccess?CAL.P.requestReadOnlyCalendarAccess():CAL.P.requestPermission({scope:'readCalendar'}));CAL.perm=r&&r.result}
     if(CAL.perm!=='granted'){CAL.events=[];CAL.err=null;return}
     const cl=await CAL.P.listCalendars();CAL.cals=((cl&&cl.result)||[]).map(c=>({id:String(c.id),title:c.title||c.internalTitle||'Calendar',color:c.color||'#7fe0a8',account:c.accountName||''}));
-    const hidden=new Set(calPrefs().hidden.map(String)),names=new Map(CAL.cals.map(c=>[c.id,c])),now=new Date(),from=addD(day0(now),-1).getTime(),to=addD(day0(now),62).getTime();
+    const hidden=new Set(calPrefs().hidden.map(String)),names=new Map(CAL.cals.map(c=>[c.id,c])),now=new Date(),from=addD(day0(now),-7).getTime(),to=addD(day0(now),62).getTime();
     const ev=await CAL.P.listEventsInRange({from,to});
     CAL.events=((ev&&ev.result)||[]).filter(e=>e&&e.startDate!=null&&!hidden.has(String(e.calendarId))).map(e=>{const all=!!e.isAllDay,s=calDay(+e.startDate,all);let en=e.endDate!=null?calDay(+e.endDate,all):s;
         if(all&&en>s)en=new Date(en.getTime()-1);/* an all-day event "ends" at the next midnight */
         const c=names.get(String(e.calendarId));return{id:String(e.id),title:String(e.title||'(no title)').slice(0,120),start:s,end:en<s?s:en,allDay:all,where:e.location?String(e.location).slice(0,80):'',cal:c?c.title:'',color:e.color||(c&&c.color)||'#7fe0a8'}})
       .sort((a,b)=>a.start-b.start).slice(0,500);
-    CAL.loaded=Date.now();CAL.err=null;
+    CAL.loaded=Date.now();CAL.err=null;calSave();
   }catch(e){CAL.err=String(e&&e.message||e)}
-  finally{CAL.busy=false;if(sheetMode==='cal'&&calYM)openCalendar(calYM[0],calYM[1]);else if(sheetMode==='agenda')openAgenda();else if(sheetMode==='menu'&&$('calst'))$('calst').textContent=calLabel()}}
+  finally{CAL.busy=false;if(typeof nvSoon==='function')nvSoon(800);if(sheetMode==='cal'&&calYM)openCalendar(calYM[0],calYM[1]);else if(sheetMode==='agenda')openAgenda();else if(sheetMode==='menu'&&$('calst'))$('calst').textContent=calLabel()}}
 /* events touching a given day (multi-day events show on every day they cover) */
+/* a copy of your events is kept on this phone, so they show (and ring) straight away, even offline */
+function calSave(){try{localStorage.setItem(KEY+'calcache',JSON.stringify({at:Date.now(),cals:CAL.cals,ev:CAL.events.map(e=>Object.assign({},e,{start:e.start.getTime(),end:e.end.getTime()}))}))}catch(e){}}
+function calRestore(){try{const c=JSON.parse(localStorage.getItem(KEY+'calcache'));if(!c||!Array.isArray(c.ev))return;CAL.cals=c.cals||[];CAL.events=c.ev.map(e=>Object.assign({},e,{start:new Date(e.start),end:new Date(e.end)}));CAL.cachedAt=c.at}catch(e){}}
+/* Purrminders' own reminders for calendar events: timed events 1 hour before, all-day events at your morning time */
+function calAlarms(fromMs,toMs){if(!calPrefs().on||calPrefs().alerts===false)return[];const out=[];
+  for(const e of CAL.events){let at;if(e.allDay){at=fromKey(dkey(e.start),winTime('morning')).getTime()}else at=e.start.getTime()-60*60e3;
+    if(at>fromMs&&at<=toMs){const tm=e.allDay?'today, all day':'at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()));out.push({k:'cal|'+e.id+'|'+e.start.getTime(),at,title:'Sesame: '+e.title,body:(e.allDay?'Today, all day':'In 1 hour \u00b7 '+tm.replace('at ',''))+(e.where?' \u00b7 '+e.where:'')+' \u00b7 from your calendar'})}}
+  return out}
 function calOn(d){if(!CAL.events.length)return[];const a=day0(d).getTime(),b=addD(day0(d),1).getTime();return CAL.events.filter(e=>e.start.getTime()<b&&e.end.getTime()>=a)}
 function calWhen(e,d){if(e.allDay)return'all day';const s=e.start,sameDay=dkey(s)===dkey(d);return(sameDay?fmtTime(pad(s.getHours())+':'+pad(s.getMinutes())):'continues')}
 function calLabel(){if(!calAvailable())return'';const p=calPrefs();if(!p.on)return'Off – your calendar’s events aren’t shown.';if(CAL.perm&&CAL.perm!=='granted')return'⚠️ Calendar access is off – allow it in Android Settings → Apps → Purrminders → Permissions → Calendar.';
   if(CAL.err)return'⚠️ '+CAL.err;if(!CAL.loaded)return'Reading your calendar…';return'✅ Showing '+CAL.events.length+' event'+(CAL.events.length===1?'':'s')+' from the next 2 months.'}
 function calHTML(){if(!calAvailable())return'';const p=calPrefs(),hid=new Set(p.hidden.map(String));
-  return'<h3>Phone calendar</h3><p class="fine">Show events from your phone’s calendar (Google Calendar and others) in Purrminders’ calendar, agenda and morning briefing. Read-only: Purrminders never changes your calendar, and your calendar app keeps doing their alerts. These events stay on this phone.</p>'+
+  return'<h3>Phone calendar</h3><p class="fine">Show events from your phone’s calendar (Google Calendar and others) in Purrminders’ calendar, agenda and morning briefing. Read-only: Purrminders never changes your calendar. A copy of your events is kept on this phone.</p>'+
     '<label class="row"><input type="checkbox" id="calon"'+(p.on?' checked':'')+'> Show my phone calendar</label><p class="fine" id="calst">'+esc(calLabel())+'</p>'+
+    (p.on?'<label class="row"><input type="checkbox" id="calal"'+(p.alerts===false?'':' checked')+'> Remind me about these events (1 hour before; all-day events at '+esc(fmtTime(winTime('morning')))+')</label><p class="fine">Turn this off if your calendar app already reminds you and you get two alerts.</p>'+
+      '<label class="row"><input type="checkbox" id="calai"'+(p.ai===false?'':' checked')+'> Let Gemini see these events (to answer questions about them)</label>':'')+
     (p.on&&CAL.cals.length?'<p class="fine">Calendars to show:</p>'+CAL.cals.map(c=>'<label class="row"><input type="checkbox" data-calid="'+esc(c.id)+'"'+(hid.has(c.id)?'':' checked')+'> <span class="dot" style="background:'+esc(c.color)+'"></span> '+esc(c.title)+(c.account&&c.account!==c.title?' <small>('+esc(c.account)+')</small>':'')+'</label>').join(''):'')}
 function calWire(){if(!calAvailable())return;
   $('calon').onchange=async e=>{const p=calPrefs();p.on=e.target.checked;calSetPrefs(p);if(!p.on){CAL.events=[];CAL.loaded=0;openMenu();return}$('calst').textContent='Reading your calendar…';await calLoad(true);openMenu()};
+  if($('calal'))$('calal').onchange=e=>{const p=calPrefs();p.alerts=e.target.checked;calSetPrefs(p);if(typeof nvSoon==='function')nvSoon(300)};
+  if($('calai'))$('calai').onchange=e=>{const p=calPrefs();p.ai=e.target.checked;calSetPrefs(p)};
   $('sheet').querySelectorAll('[data-calid]').forEach(b=>b.onchange=async()=>{const p=calPrefs(),id=b.dataset.calid;p.hidden=p.hidden.filter(x=>x!==id);if(!b.checked)p.hidden.push(id);calSetPrefs(p);await calLoad();if(sheetMode==='menu'&&$('calst'))$('calst').textContent=calLabel()})}
-function calInit(){if(!calAvailable()||!calPrefs().on)return;calLoad(false);setInterval(()=>{if(!document.hidden)calLoad(false)},30*60e3);
+function calInit(){if(!calAvailable()||!calPrefs().on)return;calRestore();calLoad(false);setInterval(()=>{if(!document.hidden)calLoad(false)},30*60e3);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-CAL.loaded>60e3)calLoad(false)})}
+
+
+/* ===================== keyboard: keep the typing bar and cards above it ===================== */
+/* Newer Android draws the keyboard over the app instead of shrinking it, which hid the typing bar. */
+const KBD={h:0,base:innerHeight,native:false};
+function kbSet(h){h=Math.max(0,Math.round(h||0));const shrink=Math.max(0,KBD.base-innerHeight),off=h>60?Math.max(0,h-shrink):0;KBD.h=off;
+  document.documentElement.style.setProperty('--kb',off+'px');document.body.classList.toggle('kbopen',h>60)}
+const kbTyping=()=>{const a=document.activeElement;return!!a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable)};
+/* remember the full height only when no one is typing (a keyboard may be what shrank the page) */
+addEventListener('resize',()=>{if(!kbTyping()&&!document.body.classList.contains('kbopen'))KBD.base=innerHeight;else if(innerHeight>KBD.base)KBD.base=innerHeight;if(KBD.raw)kbSet(KBD.raw)});
+(function(){const K=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Keyboard;
+  if(K&&K.addListener){KBD.native=true;const on=i=>{KBD.raw=i&&i.keyboardHeight||0;kbSet(KBD.raw)},off=()=>{KBD.raw=0;kbSet(0)};
+    K.addListener('keyboardWillShow',on);K.addListener('keyboardDidShow',on);K.addListener('keyboardWillHide',off);K.addListener('keyboardDidHide',off)}
+  const vv=window.visualViewport;if(vv)vv.addEventListener('resize',()=>{if(KBD.native)return;KBD.raw=innerHeight-vv.height-vv.offsetTop;kbSet(KBD.raw)})})();
 
 nvInit();calInit();
 onTasksChanged();setInterval(()=>{checkAlerts();cats.forEach(C=>C.help=catNeedsHelp(C.id));updateHealth()},20000);checkAlerts();setTimeout(()=>{maybeBrief();pepperCheck()},1200);updateHealth();jarUpdate();
