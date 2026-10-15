@@ -14,6 +14,10 @@ Install it on your phone (recommended)
   4. Android: menu > "Add to Home screen" / "Install app". iPhone: Share > "Add to Home Screen".
   It then opens full-screen like an app and works offline.
 
+Android app
+  There's also a real Android app (APK) with alarms that ring even when the app is closed:
+  github.com/oo12341man-ux/purrminders-android > Releases. Install it over the old one to update.
+
 Your data
   Everything is saved on the device you use. Use the menu (three lines) > "Back up"
   now and then.
