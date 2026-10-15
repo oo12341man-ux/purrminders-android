@@ -29,7 +29,7 @@ input[type=range]{accent-color:var(--accent);width:100%}
 #playbar{position:fixed;right:12px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 92px);display:flex;flex-direction:column;gap:8px}
 #playbar button{width:46px;height:46px;border-radius:50%;border:2.5px solid #2a1f2d;background:var(--card);font-size:20px;cursor:pointer;box-shadow:2px 2px 0 #2a1f2d}
 #playbar button[aria-pressed=true]{background:#ff8fab}
-#qbar{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));padding:8px;z-index:6}
+#qbar{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));padding:8px}
 .qrow{display:flex;gap:6px}#q{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:transparent;border:2px solid var(--line);border-radius:10px;padding:8px 10px}
 #qadd,.wide{font:inherit;font-weight:600;background:var(--accent);color:#2a1f2d;border:2.5px solid #2a1f2d;border-radius:10px;padding:8px 14px;cursor:pointer}
 .wide{width:100%;margin-top:8px}.ghost{font:inherit;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px;margin-top:8px;width:100%;cursor:pointer}
@@ -2176,7 +2176,7 @@ function calAlarms(fromMs,toMs){if(!calPrefs().on||calPrefs().alerts===false)ret
 function calOn(d){if(!CAL.events.length)return[];const a=day0(d).getTime(),b=addD(day0(d),1).getTime();return CAL.events.filter(e=>e.start.getTime()<b&&e.end.getTime()>=a)}
 function calWhen(e,d){if(e.allDay)return'all day';const s=e.start,sameDay=dkey(s)===dkey(d);return(sameDay?fmtTime(pad(s.getHours())+':'+pad(s.getMinutes())):'continues')}
 function calLabel(){if(!calAvailable())return'';const p=calPrefs();if(!p.on)return'Off – your calendar’s events aren’t shown.';if(CAL.perm&&CAL.perm!=='granted')return'⚠️ Calendar access is off – allow it in Android Settings → Apps → Purrminders → Permissions → Calendar.';
-  if(CAL.err)return'⚠️ '+CAL.err;if(!CAL.loaded)return'Reading your calendar…';return'✅ Showing '+CAL.events.length+' event'+(CAL.events.length===1?'':'s')+' from the next 2 months.'}
+  if(CAL.err)return'⚠️ '+CAL.err;if(!CAL.loaded)return'Reading your calendar…';return'✅ Showing '+CAL.events.length+' event'+(CAL.events.length===1?'':'s')+' from the past week and next 2 months.'}
 function calHTML(){if(!calAvailable())return'';const p=calPrefs(),hid=new Set(p.hidden.map(String));
   return'<h3>Phone calendar</h3><p class="fine">Show events from your phone’s calendar (Google Calendar and others) in Purrminders’ calendar, agenda and morning briefing. Read-only: Purrminders never changes your calendar. A copy of your events is kept on this phone.</p>'+
     '<label class="row"><input type="checkbox" id="calon"'+(p.on?' checked':'')+'> Show my phone calendar</label><p class="fine" id="calst">'+esc(calLabel())+'</p>'+
