@@ -1820,7 +1820,7 @@ async function syncNow(){if(!gsOn()||GS.busy)return false;if(navigator.onLine===
   try{
     const items=DB.items.filter(t=>(t.updated||0)>s.sent),seen=s.seen.slice();
     if(!first&&gsSettingsHash(st)!==s.h)st.updated=Date.now();
-    const appUrl=/^https?:/.test(location.protocol)?location.origin+location.pathname:'';
+    const appUrl=/^https?:/.test(location.protocol)&&!window.Capacitor?location.origin+location.pathname:'';/* the Android app's own address is useless in an email */
     const res=await gsCall({op:'sync',since:s.cursor,items,settings:first&&!st.updated?null:st,activity:DB.activity||{},seen,appUrl,tz:Intl.DateTimeFormat().resolvedOptions().timeZone,mailCursor:Math.max(0,s.mailCursor)});
     /* merge: the most recently changed version of each item wins */
     let changed=false;const byId=new Map(DB.items.map((t,i)=>[t.id,i]));
@@ -2020,7 +2020,7 @@ function geminiWire(){$('gmshow').onclick=()=>{const i=$('gmkey');i.type=i.type=
 /* Only runs inside the Purrminders Android app. It works out, with the same rules the app uses, when each alert will be due
    over the next 7 days and hands those times to Android. Done / Snooze / Paid buttons work from the notification. */
 const NV={on:!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()),LN:null,busy:false,timer:null,perm:null,last:0,count:0};
-const NV_DAYS=7,NV_MAX=60;
+const NV_DAYS=7,NV_MAX=200;/* Android allows up to 500 alarms per app */
 function nvHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>1)%2000000000+1}
 /* every moment over the next days when an alert would go off, using the app's own rules (pure: no side effects) */
 async function futureAlerts(fromMs,days,alerted0,pause){const end=fromMs+days*864e5,alerted=Object.assign({},alerted0||{}),out=[],cand=new Set();
@@ -2045,7 +2045,7 @@ function nvCatchUp(){if(!NV.on)return;const now=Date.now(),s=nvState();let ch=fa
   for(const n of s)if(n.at<=now)for(const k of n.keys){if(!DB.alerted[k]){DB.alerted[k]=n.at;ch=true;if(typeof gsSeen==='function')gsSeen(k)}}
   nvPut(s.filter(n=>n.at>now));if(ch)persist()}
 function nvSoon(ms){if(!NV.on)return;clearTimeout(NV.timer);NV.timer=setTimeout(nvSchedule,ms==null?2500:ms)}
-async function nvSchedule(){if(!NV.on||!NV.LN||NV.busy)return;NV.busy=true;
+async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;return}NV.busy=true;NV.again=false;
   try{nvCatchUp();const now=Date.now(),fut=await futureAlerts(now,NV_DAYS,DB.alerted,()=>new Promise(r=>setTimeout(r,0)));
     /* several alerts in the same minute become one notification, like in the app */
     const by=new Map();for(const f of fut){const m=Math.floor(f.at/60e3);if(!by.has(m))by.set(m,[]);by.get(m).push(f)}
@@ -2059,17 +2059,17 @@ async function nvSchedule(){if(!NV.on||!NV.LN||NV.busy)return;NV.busy=true;
     const fresh=notes.filter(n=>{const p=prevById.get(n.id);return!p||p.at!==n.at||p.title!==n.title||p.body!==n.body||!(pend.notifications||[]).some(x=>+x.id===n.id)});
     if(fresh.length)await NV.LN.schedule({notifications:fresh.map(n=>({id:n.id,title:'🐾 '+n.title,body:n.body||'',schedule:{at:new Date(n.at),allowWhileIdle:true},
       actionTypeId:n.type||undefined,channelId:'alerts',smallIcon:'ic_stat_purr',iconColor:'#ff9a62',extra:{keys:n.keys,item:n.item||null,step:n.step||null}}))});
-    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body})));NV.last=Date.now();NV.count=notes.length;
-  }catch(e){NV.err=String(e&&e.message||e)}finally{NV.busy=false;if(sheetMode==='menu'&&$('nvst'))$('nvst').textContent=nvLabel()}}
+    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body})));NV.last=Date.now();NV.count=notes.length;NV.until=notes.length?notes[notes.length-1].at:0;NV.full=notes.length>=NV_MAX;NV.err=null;
+  }catch(e){NV.err=String(e&&e.message||e)}finally{NV.busy=false;if(sheetMode==='menu'&&$('nvst'))$('nvst').textContent=nvLabel();if(NV.again)nvSoon(300)}}
 function nvLabel(){if(!NV.on)return'';if(NV.perm&&NV.perm!=='granted')return'⚠️ Notifications are blocked – allow them in Android Settings → Apps → Purrminders → Notifications.';
-  return NV.err?'⚠️ '+NV.err:NV.last?'✅ '+NV.count+' alarm'+(NV.count===1?'':'s')+' set for the next '+NV_DAYS+' days. Open the app at least once a week to keep them topped up.':'Setting alarms…'}
+  return NV.err?'⚠️ '+NV.err:NV.last?'✅ '+NV.count+' alarm'+(NV.count===1?'':'s')+' set'+(NV.full&&NV.until?' up to '+fmtDay(new Date(NV.until))+' (that\u2019s the limit \u2013 opening the app tops them up)':' for the next '+NV_DAYS+' days. Open the app at least once a week to keep them topped up')+'.':'Setting alarms…'}
 function nvAction(a){const n=a.notification||{},x=n.extra||{},t=x.item?DB.items.find(i=>i.id===x.item):null;
   for(const k of x.keys||[]){if(!DB.alerted[k])DB.alerted[k]=Date.now();if(typeof gsSeen==='function')gsSeen(k)}
   if(a.actionId==='tap'||!t){persist();if(!t&&(x.keys||[]).length>1)setTimeout(()=>openAgenda(),400);else if(t)setTimeout(()=>openCat(t.cat),400);return}
   if(a.actionId==='done'||a.actionId==='paid'){if(x.step){t.prep=t.prep||{};t.prep[x.step]=true;t.updated=Date.now();logDone(t.cat);save();say('✓ Done: '+(t.title||t.name))}else complete(t)}
   else if(a.actionId==='snooze'){snooze(t,'1h');say('⏰ Snoozed '+(t.title||t.name)+' for an hour.')}
   nvSoon(500)}
-async function nvInit(){if(!NV.on)return;const P=window.Capacitor.Plugins||{};NV.LN=P.LocalNotifications;if(!NV.LN){NV.err='alarm module missing';return}
+async function nvInit(){if(!NV.on)return;nvCatchUp();/* before the app's own first check, so alarms that already rang don't ring again */const P=window.Capacitor.Plugins||{};NV.LN=P.LocalNotifications;if(!NV.LN){NV.err='alarm module missing';return}
   try{await NV.LN.createChannel({id:'alerts',name:'Cat alerts',description:'Reminders from your cats',importance:5,visibility:1,vibration:true}).catch(()=>{});
     await NV.LN.registerActionTypes({types:[
       {id:'item',actions:[{id:'done',title:'Done'},{id:'snooze',title:'Snooze 1h'}]},
@@ -2078,15 +2078,17 @@ async function nvInit(){if(!NV.on)return;const P=window.Capacitor.Plugins||{};NV
       {id:'step',actions:[{id:'done',title:'Done'}]}]});
     NV.LN.addListener('localNotificationActionPerformed',a=>{try{nvAction(a)}catch(e){}});
     let p=await NV.LN.checkPermissions();if(p.display!=='granted')p=await NV.LN.requestPermissions();NV.perm=p.display;
-    if(NV.LN.checkExactNotificationSetting){const ex=await NV.LN.checkExactNotificationSetting().catch(()=>null);NV.exact=ex&&ex.exact_alarm}
+    if(NV.LN.checkExactNotificationSetting){const ex=await NV.LN.checkExactNotificationSetting().catch(()=>null);NV.exact=!ex||ex.exact_alarm===true||ex.exact_alarm==='granted'}
   }catch(e){NV.err=String(e&&e.message||e)}
   nvSchedule();
-  const App=P.App;if(App&&App.addListener)App.addListener('appStateChange',s=>{if(s.isActive){nvCatchUp();nvSoon(800)}});}
+  const App=P.App;if(App&&App.addListener){App.addListener('appStateChange',s=>{if(s.isActive){nvCatchUp();nvSoon(800)}});
+    /* Android back button: close what's open first, only then leave the app */
+    App.addListener('backButton',()=>{if(typeof BRIEF!=='undefined'&&BRIEF.on)return stopBriefing(true);if(sheetMode){closeSheet();return}if(draft){draft=null;$('q').value='';renderDraft();return}if($('pepper').classList.contains('open')){$('pepper').classList.remove('open');return}App.minimizeApp?App.minimizeApp():App.exitApp()})}
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)nvCatchUp()});}
 function nativeHTML(){if(!NV.on)return'';return'<h3>Android alarms</h3><p class="fine">Your cats set real Android alarms, so reminders ring on time even when the app is closed or you’re offline. You don’t need the ntfy app on this phone.</p><p class="fine" id="nvst">'+esc(nvLabel())+'</p>'+
-  (NV.exact===false?'<p class="fine">⚠️ Exact alarms are off, so Android may deliver alerts a few minutes late. <button class="mini" id="nvex">Turn on</button></p>':'')+'<button class="ghost" id="nvtest">Send a test alarm in 10 seconds</button>'}
+  (NV.exact===false&&NV.perm==='granted'?'<p class="fine">⚠️ Exact alarms are off, so Android may deliver alerts a few minutes late. <button class="mini" id="nvex">Turn on</button></p>':'')+'<button class="ghost" id="nvtest">Send a test alarm in 10 seconds</button>'}
 function nativeWire(){if(!NV.on)return;if($('nvex'))$('nvex').onclick=()=>NV.LN.changeExactNotificationSetting&&NV.LN.changeExactNotificationSetting().catch(()=>{});
   $('nvtest').onclick=async()=>{try{await NV.LN.schedule({notifications:[{id:1999999999,title:'🐾 Pepper: test alarm',body:'If you see this, Android alarms work – even with the app closed.',schedule:{at:new Date(Date.now()+10e3),allowWhileIdle:true},channelId:'alerts',smallIcon:'ic_stat_purr',iconColor:'#ff9a62'}]});say('Test alarm in 10 seconds – you can close the app.')}catch(e){say('Couldn’t set the test alarm: '+e.message)}}}
-
 nvInit();
 onTasksChanged();setInterval(()=>{checkAlerts();cats.forEach(C=>C.help=catNeedsHelp(C.id));updateHealth()},20000);checkAlerts();setTimeout(()=>{maybeBrief();pepperCheck()},1200);updateHealth();jarUpdate();
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){track();setTimeout(()=>{maybeBrief();pepperCheck()},600)}});
