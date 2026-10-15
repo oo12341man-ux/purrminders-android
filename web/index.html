@@ -75,6 +75,7 @@ body.busy #playbar{display:none}
 #bubble{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 104px);transform:translateX(-50%);padding:8px 14px;font-weight:500;max-width:80vw;text-align:center;display:none}
 :focus-visible{outline:3px solid #8fdcff;outline-offset:2px}
 #gsdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:8px;vertical-align:middle;background:transparent}#gsdot.ok{background:#4cd18a}#gsdot.busy{background:#f5c04a}#gsdot.err{background:#e94b5a}
+#ask{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(10,8,20,.45);padding:16px}#ask.open{display:flex}#ask .card{max-width:340px;width:100%;padding:18px}#ask p{margin:0 0 14px;font-size:17px;line-height:1.4}#ask #askyes.danger{background:#e94b5a;color:#fff}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2f6f73">
@@ -91,6 +92,7 @@ body.busy #playbar{display:none}
 <div id="pepper" class="card" role="alertdialog" aria-label="Overdue items"></div>
 <div id="brief" class="card" role="dialog" aria-label="Sesame's briefing"></div>
 <div id="sheet" class="card" role="dialog" aria-label="Tasks"></div>
+<div id="ask" role="alertdialog" aria-modal="true" aria-labelledby="askq"><div class="card"><p id="askq"></p><div class="two"><button class="ghost" id="askno">Cancel</button><button class="wide" id="askyes">OK</button></div></div></div>
 <script src="config.js" onerror="0"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -1236,6 +1238,10 @@ function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);if(!p
   if(!(typeof NV!=='undefined'&&NV.on&&NV.count))beep();for(const c of new Set(fired.map(f=>f.cat))){const C=cats.find(x=>x.id===c);if(C)C.alertT=clock.getElapsedTime()}
   const more=fired.length-1;say(fired[0].msg+(more?' (and '+more+' more – see Agenda)':''));if(!(typeof NV!=='undefined'&&NV.on))notifyLocal(more?fired.length+' things need you':fired[0].title,more?fired.slice(0,3).map(f=>f.title).join(' · ')+(more>2?' …':''):fired[0].body);
   const ks=Object.keys(DB.alerted);if(ks.length>400){const cut=dkey(addD(now,-45));for(const k of ks)if((k.split('|')[1]||'')<cut)delete DB.alerted[k]}persist()}
+/* the app's own "are you sure?" card (browser pop-ups are blocked in some places, which silently cancelled deletes) */
+function askOk(msg,ok,danger){return new Promise(res=>{const a=$('ask'),y=$('askyes'),n=$('askno');$('askq').textContent=msg;y.textContent=ok||'OK';y.classList.toggle('danger',!!danger);a.classList.add('open');
+  const done=v=>{a.classList.remove('open');y.onclick=n.onclick=a.onclick=null;document.removeEventListener('keydown',key);res(v)},key=e=>{if(e.key==='Escape')done(false);if(e.key==='Enter')done(true)};
+  y.onclick=()=>done(true);n.onclick=()=>done(false);a.onclick=e=>{if(e.target===a)done(false)};document.addEventListener('keydown',key);setTimeout(()=>n.focus(),30)})}
 function notifyLocal(title,body){try{if(!('Notification'in window)||Notification.permission!=='granted'||!document.hidden)return;
   /* iPhone home-screen apps (and Android Chrome) only show notifications through the service worker */
   if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body,icon:'icon-192.png',tag:'purr-'+Date.now()})).catch(()=>{try{new Notification(title,{body})}catch(e){}});else new Notification(title,{body})}catch(e){}}
@@ -1328,7 +1334,7 @@ function wireSheet(){$('sheet').querySelectorAll('[data-a]').forEach(b=>b.onclic
   if(a==='renew'){const v=$('rn_'+t.id).value;if(v)EX.renew(t,v);else say('Pick the new expiry date first.')}if(a==='arch'){t.done=true;t.updated=Date.now();save()}
   if(a==='gift'){const v=$('gift_'+t.id).value.trim();if(v){t.gifts=t.gifts||[];t.gifts.push(v);t.updated=Date.now();save()}}if(a==='ungift'){t.gifts.splice(+b.dataset.k,1);t.updated=Date.now();save()}
   if(a==='mkrem')return ideaToReminder(t);if(a==='step')return tickStep(t,b.dataset.k);if(a==='snz')return snoozeMenu(t);if(a==='addph')addPhotoTo(t);if(a==='pv')viewPhoto(t,b.dataset.k);
-  if(a==='rm'&&confirm('Delete "'+(t.title||t.name)+'"?')){openRow=null;dropPhotos(t);removeTask(t)}if(a==='ed')openForm(t.kind,t)});fillThumbs($('sheet'))}
+  if(a==='rm'){askOk('Delete "'+(t.title||t.name)+'"?','Delete',true).then(y=>{if(!y)return;openRow=null;dropPhotos(t);removeTask(t);say('Deleted "'+(t.title||t.name)+'".')})}if(a==='ed')openForm(t.kind,t)});fillThumbs($('sheet'))}
 function rerender(){if(sheetMode==='cat')openCat(sheetCat,true);else if(sheetMode==='agenda')openAgenda(true)}
 let agendaBack=false;
 function openCat(id,keep){sheetCat=id;sheetMode='cat';openSheet(catScreen(id));wireSheet();if(!keep){openRow=null;const C=cats.find(c=>c.id===id);if(C){sel=C;zoom=.3}else if(id==='jar'){sel=null;tgtGoal.set(.9,.5,.1);zoom=.3}}}
@@ -1393,7 +1399,7 @@ function openMenu(){sheetMode='menu';sheetCat=null;openSheet('<h2>'+esc(CFG.offi
   $('lf').onchange=e=>{try{localStorage.setItem(KEY+'lightFur',e.target.checked?'1':'0')}catch(_){}location.reload()};
   if($('np'))$('np').onclick=()=>Notification.requestPermission().then(()=>openMenu());
   $('bk').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(DB,null,1)],{type:'application/json'}));a.download='purrminders-'+CFG.copyId+'-backup.json';document.body.appendChild(a);a.click();a.remove()};
-  $('sheet').querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{delete DB.learn[b.dataset.forget];persist();openMenu()});if($('lrst'))$('lrst').onclick=()=>{if(confirm('Reset everything the cats learned?')){DB.learn={};persist();openMenu()}};
+  $('sheet').querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{delete DB.learn[b.dataset.forget];persist();openMenu()});if($('lrst'))$('lrst').onclick=()=>askOk('Reset everything the cats learned?','Reset',true).then(y=>{if(y){DB.learn={};persist();openMenu()}});
   $('rs').onclick=()=>$('rsf').click();$('rsf').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(s=>{try{const v=JSON.parse(s);if(!Array.isArray(v.items))throw 0;DB=Object.assign({log:[],alerted:{}},v);const g=gsState();g.sent=0;gsPut(g);save();say('Backup restored.')}catch(_){say('That file is not a Purrminders backup.')}})}}
 function learnedHTML(){const L=Object.entries(DB.learn||{});return '<h3>What the cats learned</h3>'+(L.length?'<ul class="hist">'+L.slice(-30).map(([w,c])=>'<li>“'+esc(w)+'” \u2192 '+CATNAME[c]+' <button class="mini" data-forget="'+esc(w)+'">forget</button></li>').join('')+'</ul><button class="mini" id="lrst">Reset all learning</button>':'<p class="fine">Nothing yet. When you move an item to a different cat in the preview, they remember.</p>')}
 function lightFur(){try{const v=localStorage.getItem(KEY+'lightFur');if(v!==null)return v==='1'}catch(e){}return!!CFG.lightFur}
@@ -1652,7 +1658,7 @@ function photoBlock(t){return '<div class="phs">'+(t.photos||[]).map(id=>'<img d
   '<button class="mini" data-a="addph" data-id="'+t.id+'">\ud83d\udcf7 Add photo</button></div>'}
 async function fillThumbs(root){for(const im of (root||document).querySelectorAll('img[data-photo]')){const u=await photoSrc(im.dataset.photo);if(u)im.src=u;else{im.replaceWith(Object.assign(document.createElement('span'),{className:'phmiss',textContent:'photo not on this device'}))}}}
 async function viewPhoto(t,id){const u=await photoSrc(id);if(!u)return;const v=$('pview');v.innerHTML='<img alt="Photo" src="'+u+'"><div class="two"><button class="wide" id="pvx">Close</button><button class="ghost" id="pvd">Delete photo</button></div>';v.classList.add('open');
-  $('pvx').onclick=()=>v.classList.remove('open');$('pvd').onclick=async()=>{if(!confirm('Delete this photo?'))return;t.photos=(t.photos||[]).filter(x=>x!==id);t.updated=Date.now();try{await PDB.del(id)}catch(e){}v.classList.remove('open');save()}}
+  $('pvx').onclick=()=>v.classList.remove('open');$('pvd').onclick=async()=>{if(!await askOk('Delete this photo?','Delete',true))return;t.photos=(t.photos||[]).filter(x=>x!==id);t.updated=Date.now();try{await PDB.del(id)}catch(e){}v.classList.remove('open');save()}}
 
 /* the cats learn from your corrections */
 const STOP=new Set('the a an and or to of for on in at by my me i is it be with from this that every each day days week weeks month months year years today tomorrow tonight morning evening night remind please due pay call get go do make take new next last time times'.split(' '));
@@ -1863,7 +1869,7 @@ function googleHTML(){const c=gsCreds(),s=SET(),em=s.emailTo!=null?s.emailTo:(CF
 function googleWire(){const set=(k,v)=>{SET()[k]=v;persist();gsSoon(500)};
   /* any menu setting you change syncs a moment later */
   $('sheet').onchange=()=>{if(sheetMode==='menu'){gsSoon(1500);if(typeof nvSoon==='function')nvSoon()}};
-  $('gsgen').onclick=()=>{if($('gskey').value&&!confirm('Replace the key in the box? Other devices of this copy must use the same key.'))return;$('gskey').value=gsKey()};
+  $('gsgen').onclick=async()=>{if($('gskey').value&&!await askOk('Replace the key in the box? Other devices of this copy must use the same key.','Replace'))return;$('gskey').value=gsKey()};
   $('gsconn').onclick=async()=>{const url=$('gsurl').value.trim(),key=$('gskey').value.trim();
     if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url))return say('Paste the web app link that ends in /exec.');if(key.length<8)return say('The private key needs at least 8 characters – tap Make a key.');
     gsSetCreds({url,key});const s=SET();if(s.emailTo==null&&CFG.emailTo)s.emailTo=CFG.emailTo;if(!s.ntfyTopic)s.ntfyTopic=gsTopic();persist();
