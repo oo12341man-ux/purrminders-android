@@ -13,7 +13,22 @@ perms = ['<uses-permission android:name="android.permission.POST_NOTIFICATIONS" 
          '<uses-permission android:name="android.permission.READ_CALENDAR" />']
 add = '\n    '.join(p for p in perms if p.split('"')[1] not in s)
 s = s.replace('</manifest>', '    ' + add + '\n</manifest>') if add else s
+# Done / Paid buttons work without opening the app (see android-src/PurrActionReceiver.java)
+if 'PurrActionReceiver' not in s:
+    s, nr = re.subn(r'(</application>)', '    <receiver android:name=".PurrActionReceiver" android:exported="false" />\n    \\1', s, 1)
+    if not nr: sys.exit('could not add the Done-button receiver to the manifest')
 open(man, 'w').write(s)
+jdir = 'android/app/src/main/java/com/purrminders/cats'
+if not os.path.isdir(jdir): sys.exit('app java folder not found: ' + jdir)
+shutil.copy('android-src/PurrActionReceiver.java', jdir)
+ln = 'node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java'
+j = open(ln).read()
+if 'PurrActionReceiver' not in j:
+    j, nl = re.subn(r'PendingIntent actionPendingIntent = PendingIntent\.getActivity\(',
+        'if (!"snooze".equals(notificationAction.getId())) { actionIntent.setComponent(new android.content.ComponentName(context.getPackageName(), "com.purrminders.cats.PurrActionReceiver")); actionIntent.setFlags(0); }\n'
+        '                PendingIntent actionPendingIntent = !"snooze".equals(notificationAction.getId()) ? PendingIntent.getBroadcast(context, localNotification.getId() + notificationAction.getId().hashCode(), actionIntent, flags) : PendingIntent.getActivity(', j, 1)
+    if not nl: sys.exit('could not patch notification buttons in ' + ln)
+    open(ln, 'w').write(j)
 res = 'android/app/src/main/res'
 for d in os.listdir('android-res'):
     for f in os.listdir(os.path.join('android-res', d)):
@@ -39,4 +54,4 @@ if 'signingConfigs' not in s:
     s, n3 = re.subn(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig = signingConfigs.release', s, 1)
     if not n3: sys.exit('could not add release signing to build.gradle')
 open(g, 'w').write(s)
-print('patched: permissions, icons, version 1.0.%d, signing' % run)
+print('patched: permissions, icons, sounds, Done-button receiver, version 1.0.%d, signing' % run)

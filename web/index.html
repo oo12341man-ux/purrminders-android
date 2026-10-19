@@ -34,10 +34,10 @@ input[type=range]{accent-color:var(--accent);width:100%}
 #qadd,.wide{font:inherit;font-weight:600;background:var(--accent);color:#2a1f2d;border:2.5px solid #2a1f2d;border-radius:10px;padding:8px 14px;cursor:pointer}
 .wide{width:100%;margin-top:8px}.ghost{font:inherit;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px;margin-top:8px;width:100%;cursor:pointer}
 #qprev{display:none;margin-bottom:8px}#qprev.open{display:block}
-.chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.chip{font:inherit;font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:999px;padding:4px 9px;cursor:pointer}
+.chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.chip .cj{display:flex;flex-direction:column;line-height:1.1;text-align:left}.chip .cj small{font-size:11px;opacity:.75}.qhint{font-size:13px;opacity:.75;margin:2px 2px 0}.chip{font:inherit;font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:999px;padding:4px 9px;cursor:pointer}
 .chip.on{background:var(--accent);color:#2a1f2d;border-color:#2a1f2d}.pv{margin:6px 2px;font-size:15px}.pv small{display:block;opacity:.75}.pv em{display:block;font-size:13px;color:#d9534f}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;margin-right:4px}
-.two{display:flex;gap:8px}.two>*{flex:1}
+.two{display:flex;gap:8px}.two>*{flex:1}[hidden]{display:none!important}
 #sheet{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));max-height:62%;overflow-y:auto;padding:14px 14px 16px;display:none;z-index:5}
 #sheet.open{display:block}#sheet h2{margin:0 30px 8px 0;font-size:20px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}#sheet h2 small{font-size:13px;font-weight:400;opacity:.7}
 #sheet h3{margin:12px 0 4px;font-size:14px;opacity:.75}#sheet .x{position:absolute;right:10px;top:8px;font-size:22px;background:none;border:0;color:var(--ink);cursor:pointer}
@@ -754,8 +754,19 @@ const PERS={ginger:{fun:1.45,social:1.0,thirst:1.0,job:1.0,focus:13},mochi:{fun:
   pepper:{fun:1.0,social:1.55,thirst:.9,job:1.0,focus:15},patches:{fun:.9,social:1.1,thirst:1.0,job:1.2,focus:17},sesame:{fun:.8,social:1.2,thirst:1.0,job:1.1,focus:20}};
 const RATE={thirst:.011,social:.009,fun:.01,job:.012};
 /* the office day, driven by your real clock */
-function PHASE(h){if(h>=22||h<6)return'sleep';if(h<8.5)return'morning';if(h>=10&&h<10.4)return'standup';if(h>=12&&h<12.75)return'lunch';
-  if(h>=12.75&&h<13.4)return'siesta';if(h>=16&&h<16.35)return'review';if(h>=17.5&&h<19)return'play';if(h>=19)return'evening';return'work'}
+/* the cats' day: your own times (menu → Cats' day), defaults below */
+const CATDAY_DEF={wake:'06:00',work:'08:30',lunch:'12:00',siesta:'13:25',play:'17:30',playEnd:'19:00',sleep:'22:00',weekendOff:false};
+let CATDAY_C=null;
+function catDay(){const now=Date.now();if(CATDAY_C&&now-CATDAY_C.t<60e3)return CATDAY_C;const s=(typeof DB!=='undefined'&&DB.settings&&DB.settings.catDay)||{},c=Object.assign({},CATDAY_DEF,s),
+    h=v=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(v||''));return m?+m[1]+ +m[2]/60:null},g=k=>{const x=h(c[k]);return x==null?h(CATDAY_DEF[k]):x},d=new Date().getDay();
+  return CATDAY_C={t:now,c,W:g('wake'),S:g('work'),L:g('lunch'),Z:g('siesta'),P:g('play'),PE:g('playEnd'),N:g('sleep'),off:!!c.weekendOff&&(d===0||d===6)}}
+const inR=(a,b,x)=>a===b?false:a<b?x>=a&&x<b:x>=a||x<b;
+function PHASE(h){const c=catDay();
+  if(inR(c.N,c.W,h))return'sleep';if(inR(c.W,c.S,h))return'morning';
+  if(inR(c.L,c.L+.75,h))return'lunch';if(inR(c.L+.75,c.Z,h)&&c.Z>c.L+.75)return'siesta';
+  if(inR(c.P,c.PE,h))return'play';if(inR(c.PE,c.N,h))return'evening';
+  if(c.off)return h<c.L?'evening':'play';/* weekends off: lounging in the morning, playing in the afternoon */
+  if(inR(c.S+1.5,c.S+1.9,h))return'standup';if(h>=16&&h<16.35&&inR(c.S,c.P,h))return'review';return'work'}
 const PHASE_LABEL={sleep:'Lights out',morning:'Morning arrivals',standup:'Stand-up meeting',lunch:'Lunch break',siesta:'Siesta',review:'Weekly purr-view',play:'Playtime',evening:'Winding down',work:'Focus time'};
 function reqAct(C,ph){if(typeof BRIEF!=='undefined'&&BRIEF.on)return C.id==='sesame'?'present':'meet';if(ph==='sleep')return'sleep';if(ph==='siesta')return'nap';if(ph==='lunch')return'eat';
   if(ph==='standup'||ph==='review')return C.id==='sesame'?'present':'meet';return null}
@@ -779,7 +790,7 @@ const STATUS={sofa:'napping on the office sofa',pr:'playing in the playroom',hom
 cats.forEach(C=>{C.pers=PERS[C.id];C.need={thirst:Math.random()*.6,social:Math.random()*.6,fun:Math.random()*.6,job:Math.random()*.6}});
 const ACTS=['look','wave','groom','tilt','glance','reach','look','glance'];
 function tickCat(C,dt,t){
-  const H=C.stn,K=C.K,g=C.g,sleepy=day(hour)===0&&(hour>=22||hour<6),petting=t-C.petT<2.2,pt=t-C.partyT,party=pt<1.9,worry=!!C.help&&C.st==='home'&&((t+C.seed*5)%30<5);
+  const H=C.stn,K=C.K,g=C.g,sleepy=PHASE(hour)==='sleep',petting=t-C.petT<2.2,pt=t-C.partyT,party=pt<1.9,worry=!!C.help&&C.st==='home'&&((t+C.seed*5)%30<5);
   C.stT+=dt;
   const PH=PHASE(hour),need=reqAct(C,PH);
   C.prRoll=0;
@@ -1027,6 +1038,7 @@ function parse(raw,now){
   else if((m=cut(/\b(every\s+year|yearly|annually|annual|each\s+year)\b/i)))freq='yearly';
   else if((m=cut(/\b(every\s+month|monthly|each\s+month|per\s+month|a\s+month)\b/i)))freq='monthly';
   else if((m=s.match(new RegExp('\\bevery\\s+'+MON_RE+'\\b','i')))){freq='yearly';out.month=monIdx(m[1])+1;cut(m[0])}
+  let once=false;if(!freq&&!habit&&(m=cut(/\b(one[-\s]?off|one[-\s]?time|just once|once only|single payment)\b/i)))once=true;
   /* ---------- time ---------- */
   let time=null;
   if((m=s.match(/\b(?:at\s+|@\s*)?(\d{1,2})(?::|\.)(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?(?=\W)/i))&&+m[2]<60&&+m[1]<24&&(m[0].includes(':')||m[3]||/\bat\s/i.test(m[0]))&&cut(m[0])){let h=+m[1];const ap=(m[3]||'').toLowerCase();if(ap.startsWith('p')&&h<12)h+=12;if(ap.startsWith('a')&&h===12)h=0;if(h<24&&+m[2]<60)time=[h,+m[2]]}
@@ -1066,7 +1078,7 @@ function parse(raw,now){
   let cat,kind;
   if(isPerson){cat='sesame';kind='person'}
   else if(isExp&&!(isBill&&freq&&!/expir|renew|warranty|voucher|trial|passport|visa|licen/i.test(raw))){cat='patches';kind='expiry'}
-  else if(isBill&&!habit&&!(isPep&&!freq&&!day)&&!(date&&!freq&&!day)){cat='mochi';kind='bill'}
+  else if(isBill&&!habit&&(once||!(isPep&&!freq&&!day)&&!(date&&!freq&&!day)||date&&!freq&&!day&&(amount!==null||/\b\d{2,7}(?:[.,]\d{1,2})?\b/.test(s))&&!isPep)){cat='mochi';kind='bill'}
   else if(habit){cat='ginger';kind='habit'}
   else if(isEvent&&!(!date&&/^\s*(book|buy|call|email|send|order|plan|arrange|schedule|cancel|confirm|pick|pack|prepare)\b/i.test(raw))){cat='sesame';kind='event'}
   else{cat='pepper';kind='reminder'}
@@ -1081,7 +1093,8 @@ function parse(raw,now){
   if(time)out.time=pad(time[0])+':'+pad(time[1]);
   if(date&&!isNaN(date))out.date=dk(date);
   if(kind==='habit'){out.title=f;out.habit=habit}
-  if(kind==='bill'){out.title=f;out.amount=amount;out.freq=freq||'monthly';if(!day&&!date&&out.freq!=='yearly')out.notes.push('Check the day');out.day=day||(date?date.getDate():null)||today.getDate();if(out.freq==='yearly'&&!out.month)out.month=date?date.getMonth()+1:today.getMonth()+1;if(out.freq==='yearly'&&!day&&!date){out.day=1;out.notes.push('Check the day')}if(out.freq==='quarterly')out.month=date?date.getMonth()+1:today.getMonth()+1;delete out.date}
+  if(kind==='bill'&&(once||date&&!freq&&!day)){out.title=f;out.amount=amount;out.freq='once';const d=date&&!isNaN(date)?date:today;if(!date)out.notes.push('Check the date');out.date=dk(d);out.day=d.getDate();out.month=d.getMonth()+1}
+  else if(kind==='bill'){out.title=f;out.amount=amount;out.freq=freq||'monthly';if(!day&&!date&&out.freq!=='yearly')out.notes.push('Check the day');out.day=day||(date?date.getDate():null)||today.getDate();if(out.freq==='yearly'&&!out.month)out.month=date?date.getMonth()+1:today.getMonth()+1;if(out.freq==='yearly'&&!day&&!date){out.day=1;out.notes.push('Check the day')}if(out.freq==='quarterly')out.month=date?date.getMonth()+1:today.getMonth()+1;delete out.date}
   if(kind==='expiry'){out.title=f;out.type=(EXPTYPE.find(([re])=>re.test(raw))||[0,'other'])[1];if(!out.date)out.notes.push('Add the expiry date')}
   if(kind==='reminder'){out.title=f;if(!out.date&&out.time){const t=new Date(now);const[h,mi]=out.time.split(':').map(Number);t.setHours(h,mi,0,0);out.date=dk(t<now?addDays(today,1):today)}if(!out.date)out.date=dk(today)}
   if(kind==='event'){out.title=f;if(!out.date)out.notes.push('Add the date')}
@@ -1155,17 +1168,19 @@ const HB={
 };
 /* ---------- Mochi: bills ---------- */
 const BL={
-  occ(b,y,m){const dim=new Date(y,m+1,0).getDate(),at=new Date(y,m,Math.min(b.day||1,dim),9,0);return at},
-  inMonth(b,y,m){if(b.freq==='yearly')return m===(b.month||1)-1;if(b.freq==='quarterly')return((m-((b.month||1)-1))%3+3)%3===0;return true},
-  pkey(b,at){return b.freq==='yearly'?String(at.getFullYear()):mkey(at)},
-  next(b,now){const st=fromKey(b.start)||day0(now);let y=st.getFullYear(),m=st.getMonth();
+  once(b){const d=fromKey(b.date);return d?new Date(d.getFullYear(),d.getMonth(),d.getDate(),9,0):null},
+  occ(b,y,m){if(b.freq==='once')return BL.once(b)||new Date(y,m,1,9,0);const dim=new Date(y,m+1,0).getDate(),at=new Date(y,m,Math.min(b.day||1,dim),9,0);return at},
+  inMonth(b,y,m){if(b.freq==='once'){const d=BL.once(b);return!!d&&d.getFullYear()===y&&d.getMonth()===m}if(b.freq==='yearly')return m===(b.month||1)-1;if(b.freq==='quarterly')return((m-((b.month||1)-1))%3+3)%3===0;return true},
+  pkey(b,at){return b.freq==='once'?'once':b.freq==='yearly'?String(at.getFullYear()):mkey(at)},
+  next(b,now){if(b.freq==='once'){const at=BL.once(b);return at&&!(b.paid||{}).once?{at,key:'once'}:null}const st=fromKey(b.start)||day0(now);let y=st.getFullYear(),m=st.getMonth();
     for(let k=0;k<40;k++){if(BL.inMonth(b,y,m)){const at=BL.occ(b,y,m),key=BL.pkey(b,at);if(day0(at)>=day0(st)&&!(b.paid||{})[key])return{at,key}}m++;if(m>11){m=0;y++}}return null},
   state(b,now){const n=BL.next(b,now);if(!n)return{state:'none'};const dd=daysBetween(now,n.at);return{...n,dd,state:dd<0?'overdue':dd===0?'today':dd<=2?'soon':'upcoming'}},
   month(now){let total=0,paid=0,left=0,count=0;const y=now.getFullYear(),m=now.getMonth();for(const b of byCat('mochi')){if(!BL.inMonth(b,y,m))continue;const at=BL.occ(b,y,m);if(fromKey(b.start)&&day0(at)<fromKey(b.start))continue;
     const key=BL.pkey(b,at),a=+b.amount||0;count++;total+=a;if((b.paid||{})[key])paid+=+(b.paid[key].amount||a);else left+=a}return{total,paid,left,count}},
-  pay(b){const s=BL.state(b,new Date());if(!s.key)return;b.paid=b.paid||{};b.paid[s.key]={on:dkey(new Date()),amount:b.amount||null};b.updated=Date.now();logDone('mochi');cheer('mochi','Mochi marked "'+b.title+'" paid.');save()},
+  pay(b){const s=BL.state(b,new Date());if(!s.key)return;b.paid=b.paid||{};b.paid[s.key]={on:dkey(new Date()),amount:b.amount||null};b.updated=Date.now();logDone('mochi');cheer('mochi','Mochi marked "'+b.title+'" paid.'+(b.freq==='once'?' That one’s finished!':''));save()},
   unpay(b,key){delete b.paid[key];b.updated=Date.now();save()},
-  freqTxt(b){return b.freq==='yearly'?'Every year on '+new Date(2000,(b.month||1)-1,b.day||1).toLocaleDateString([],{day:'numeric',month:'short'}):b.freq==='quarterly'?'Every 3 months on the '+b.day+ord(b.day):'Every month on the '+b.day+ord(b.day)}
+  finished(b){return b.freq==='once'&&!!(b.paid||{}).once},
+  freqTxt(b){if(b.freq==='once'){const d=BL.once(b);return'One-off'+(d?', due '+d.toLocaleDateString([],{day:'numeric',month:'short',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}):'')}return b.freq==='yearly'?'Every year on '+new Date(2000,(b.month||1)-1,b.day||1).toLocaleDateString([],{day:'numeric',month:'short'}):b.freq==='quarterly'?'Every 3 months on the '+b.day+ord(b.day):'Every month on the '+b.day+ord(b.day)}
 };
 /* ---------- Patches: expiry dates ---------- */
 const EX={
@@ -1193,7 +1208,7 @@ function removeTask(t){t.deleted=true;t.updated=Date.now();save()}
 function cheer(cat,msg){const C=cats.find(c=>c.id===cat);if(C)C.partyT=clock.getElapsedTime();if(msg)say(msg)}
 function addItem(p){const t=Object.assign({id:uid(),created:Date.now(),updated:Date.now(),deleted:false},p);t.cat=KIND_CAT[t.kind];
   if(t.kind==='habit'){t.start=t.start||dkey(new Date());t.log=t.log||{};t.habit=t.habit||{type:'daily'}}
-  if(t.kind==='bill'){t.paid=t.paid||{};t.freq=t.freq||'monthly';t.day=t.day||new Date().getDate();if(!t.start){const now=new Date(),at=BL.occ(t,now.getFullYear(),now.getMonth());t.start=dkey(day0(at)<day0(now)&&BL.inMonth(t,now.getFullYear(),now.getMonth())?addD(day0(now),1):new Date(now.getFullYear(),now.getMonth(),1))}}
+  if(t.kind==='bill'){t.paid=t.paid||{};t.freq=t.freq||'monthly';if(t.freq==='once'){if(!fromKey(t.date))t.date=dkey(new Date());t.day=+t.date.slice(8)}t.day=t.day||new Date().getDate();if(!t.start&&t.freq!=='once'){const now=new Date(),at=BL.occ(t,now.getFullYear(),now.getMonth());t.start=dkey(day0(at)<day0(now)&&BL.inMonth(t,now.getFullYear(),now.getMonth())?addD(day0(now),1):new Date(now.getFullYear(),now.getMonth(),1))}}
   if(t.kind==='person'){t.title=t.name=t.name||t.title;t.gifts=t.gifts||[]}
   if(t.kind==='expiry'){t.type=t.type||'other'}
   DB.items.push(t);save();return t}
@@ -1224,7 +1239,11 @@ function quiet(now){const m=now.getHours()*60+now.getMinutes(),q=s=>{const[h,mi]
 /* what should alert right now: one decision shared by the app and the Google script */
 function alertPlan(now,alerted){const nt=nudgeTime(),out=[],ms=now.getTime();
   for(const e of entries(now)){const t=e.t;if(snoozed(t,now))continue;const k=t.id+'|'+(e.step?e.step.id:dkey(e.at))+'|'+e.state+(t.kind==='expiry'&&e.state==='soon'&&daysBetween(now,e.at)<=1?'|final':'');
-    if(alerted[k]){if((e.state==='overdue'||e.state==='expired')&&!e.step&&!alerted[k+'|again']&&typeof alerted[k]==='number'&&ms-alerted[k]>=30*60e3&&!quiet(now))out.push({k:k+'|again',again:true,e});continue}
+    /* a timed thing that already rang today at its time doesn't ring again a minute later as "overdue": just one follow-up 30 minutes on */
+    if(e.state==='overdue'&&!e.step&&!alerted[k]){const tk=t.id+'|'+dkey(e.at)+'|today',ta=alerted[tk];
+      if(typeof ta==='number'&&dkey(new Date(ta))===dkey(now)){if(!alerted[tk+'|again']&&ms-ta>=30*60e3&&!quiet(now))out.push({k:tk+'|again',again:true,e});continue}}
+    /* "again" nudges only on the day it was due; something from an earlier day gets one reminder (when quiet hours end), not two */
+    if(alerted[k]){if((e.state==='overdue'||e.state==='expired')&&!e.step&&dkey(e.at)===dkey(now)&&!alerted[k+'|again']&&typeof alerted[k]==='number'&&ms-alerted[k]>=30*60e3&&!quiet(now))out.push({k:k+'|again',again:true,e});continue}
     const timed=e.step?true:!!effTime(t);let fire=false;
     if(e.state==='overdue'||e.state==='expired')fire=true;
     else if(e.state==='today')fire=timed?e.at<=now:now>=fromKey(dkey(now),nt);
@@ -1232,11 +1251,11 @@ function alertPlan(now,alerted){const nt=nudgeTime(),out=[],ms=now.getTime();
     else if(e.state==='soon'&&!e.step&&(t.kind==='expiry'||t.kind==='bill'))fire=now>=fromKey(dkey(now),nt);
     if(!fire)continue;
     /* quiet hours: automatic nudges are held (not marked) so they surface when quiet hours end; deliberate night-time reminders still ring */
-    const deliberate=t.kind==='reminder'&&!!t.time&&!t.window&&!e.step;if(quiet(now)&&!deliberate)continue;
+    const deliberate=t.kind==='reminder'&&e.state==='today'&&!!t.time&&!t.window&&!e.step;if(quiet(now)&&!deliberate)continue;
     out.push({k,again:false,e})}
   return out}
 function alertText(p){const e=p.e,t=e.t,nm=t.title||t.name;return{cat:e.cat,msg:CATNAME[e.cat]+(p.again?' again: ':': ')+(e.step?e.step.label:nm+' – '+e.text),title:CATNAME[e.cat]+(p.again?' (reminder again)':': '+(e.step?e.step.label:nm)),body:p.again?nm+' – '+e.text:(e.step?'':e.text)}}
-function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);
+function checkAlerts(){if(typeof nvCatchUp==='function')nvCatchUp();/* alarms Android already rang count as shown */const now=new Date(),plan=alertPlan(now,DB.alerted);
   if(typeof calAlarms==='function')for(const c of calAlarms(now.getTime()-10*60e3,now.getTime()))if(!DB.alerted[c.k]){DB.alerted[c.k]=now.getTime();if(!(typeof NV!=='undefined'&&NV.on&&NV.count))beep();say('\ud83d\udcc6 '+c.title+' \u2013 '+c.body);greet('sesame');persist()}
   if(!plan.length)return;
   for(const p of plan){DB.alerted[p.k]=now.getTime();if(typeof gsSeen==='function')gsSeen(p.k)}
@@ -1245,6 +1264,8 @@ function checkAlerts(){const now=new Date(),plan=alertPlan(now,DB.alerted);
   if(!(typeof NV!=='undefined'&&NV.on&&NV.count))beep();for(const c of new Set(fired.map(f=>f.cat))){const C=cats.find(x=>x.id===c);if(C)C.alertT=clock.getElapsedTime()}
   const more=fired.length-1;say(fired[0].msg+(more?' (and '+more+' more – see Agenda)':''));if(!(typeof NV!=='undefined'&&NV.on))notifyLocal(more?fired.length+' things need you':fired[0].title,more?fired.slice(0,3).map(f=>f.title).join(' · ')+(more>2?' …':''):fired[0].body);
   const ks=Object.keys(DB.alerted);if(ks.length>400){const cut=dkey(addD(now,-45));for(const k of ks)if((k.split('|')[1]||'')<cut)delete DB.alerted[k]}persist()}
+/* tapping anywhere on a time or date box opens the picker (not just the little clock / calendar icon) */
+document.addEventListener('click',e=>{const el=e.target;if(el&&el.tagName==='INPUT'&&/^(time|date|datetime-local|month)$/.test(el.type)&&!el.disabled&&!el.readOnly&&typeof el.showPicker==='function'){try{el.showPicker()}catch(_){}}},true);
 /* the app's own "are you sure?" card (browser pop-ups are blocked in some places, which silently cancelled deletes) */
 function askOk(msg,ok,danger){return new Promise(res=>{const a=$('ask'),y=$('askyes'),n=$('askno');$('askq').textContent=msg;y.textContent=ok||'OK';y.classList.toggle('danger',!!danger);a.classList.add('open');
   const done=v=>{a.classList.remove('open');y.onclick=n.onclick=a.onclick=null;document.removeEventListener('keydown',key);res(v)},key=e=>{if(e.key==='Escape')done(false);if(e.key==='Enter')done(true)};
@@ -1307,11 +1328,13 @@ function catScreen(id){const now=new Date(),L=byCat(id);let h='';
         '<small class="legend"><i class="done"></i>done <i class="part"></i>partly <i class="miss"></i>missed <i class="off"></i>rest</small>'+(dn&&tg===1?btn('un',t.id,'Undo today'):'')+(tg>1&&c?btn('dec',t.id,'\u2212 1'):'')+editRow(t)+'</li>'}return r};
     h+=(L.length?'<h3>Today</h3><ul class="tl">'+(due.map(row).join('')||'<li class="empty">Nothing due today.</li>')+'</ul>'+(other.length?'<h3>Not today</h3><ul class="tl">'+other.map(row).join('')+'</ul>':''):'<p class="empty">No habits yet. Try typing \u201cvitamins every morning\u201d or \u201cgym 3 times a week\u201d.</p>')}
   if(id==='mochi'){const s=BL.month(now);h+=head('mochi')+'<div class="sum"><div><b>'+money(s.total)+'</b><small>this month</small></div><div><b>'+money(s.paid)+'</b><small>paid</small></div><div><b>'+money(s.left)+'</b><small>left to pay</small></div></div>';
-    const rows=L.map(t=>({t,s:BL.state(t,now)})).sort((a,b)=>(a.s.at||0)-(b.s.at||0));
-    h+='<ul class="tl">'+(rows.map(({t,s})=>{let r='<li class="'+(s.state==='overdue'?'bad':s.state==='today'||s.state==='soon'?'warn':'')+'">'+btn('pay',t.id,'','ck')+
-      rowHead(t,'<div>'+esc(t.title)+(t.amount?' <span class="amt">'+money(t.amount)+'</span>':'')+(t.autopay?' <span class="tag">autopay</span>':'')+'</div><small>'+(()=>{const k=BL.inMonth(t,now.getFullYear(),now.getMonth())?BL.pkey(t,BL.occ(t,now.getFullYear(),now.getMonth())):null;return k&&(t.paid||{})[k]?'\u2713 '+now.toLocaleString([],{month:'short'})+' paid \u00b7 ':''})()+(s.at?(s.state==='overdue'?'overdue since ':'next ')+fmtDay(s.at,now):'')+' \u00b7 '+esc(BL.freqTxt(t))+'</small>')+'</li>';
+    const fin=L.filter(t=>BL.finished(t)).sort((a,b)=>String(b.paid.once.on).localeCompare(String(a.paid.once.on))),rows=L.filter(t=>!BL.finished(t)).map(t=>({t,s:BL.state(t,now)})).sort((a,b)=>(a.s.at||0)-(b.s.at||0));
+    const mrow=({t,s})=>{const f=BL.finished(t);let r='<li class="'+(f?'done':s.state==='overdue'?'bad':s.state==='today'||s.state==='soon'?'warn':'')+'">'+(f?'<span class="ck">✓</span>':btn('pay',t.id,'','ck'))+
+      rowHead(t,'<div>'+esc(t.title)+(t.amount?' <span class="amt">'+money(t.amount)+'</span>':'')+(t.autopay?' <span class="tag">autopay</span>':'')+'</div><small>'+(f?'✓ paid '+fmtDay(fromKey(t.paid.once.on),now)+' · ':'')+(()=>{if(f)return'';const k=BL.inMonth(t,now.getFullYear(),now.getMonth())?BL.pkey(t,BL.occ(t,now.getFullYear(),now.getMonth())):null;return k&&(t.paid||{})[k]?'\u2713 '+now.toLocaleString([],{month:'short'})+' paid \u00b7 ':''})()+(s.at?(s.state==='overdue'?'overdue since ':'next ')+fmtDay(s.at,now):'')+' \u00b7 '+esc(BL.freqTxt(t))+'</small>')+'</li>';
       if(openRow===t.id){const hist=Object.entries(t.paid||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12);
-        r+='<li class="detail"><small>'+(hist.length?'Paid history:':'No payments recorded yet.')+'</small><ul class="hist">'+hist.map(([k,v])=>'<li>'+k+' \u00b7 paid '+v.on+(v.amount?' \u00b7 '+money(v.amount):'')+' <button class="mini" data-a="unpay" data-id="'+t.id+'" data-k="'+k+'">undo</button></li>').join('')+'</ul>'+(t.notes?'<small>'+esc(t.notes)+'</small>':'')+editRow(t)+'</li>'}return r}).join('')||'<li class="empty">No bills yet. Try \u201crent on the 1st every month 1200\u201d.</li>')+'</ul><p class="fine">Tick a bill when it\u2019s paid; Mochi moves it to the next period.</p>'}
+        r+='<li class="detail"><small>'+(hist.length?'Paid history:':'No payments recorded yet.')+'</small><ul class="hist">'+hist.map(([k,v])=>'<li>'+k+' \u00b7 paid '+v.on+(v.amount?' \u00b7 '+money(v.amount):'')+' <button class="mini" data-a="unpay" data-id="'+t.id+'" data-k="'+k+'">undo</button></li>').join('')+'</ul>'+(t.notes?'<small>'+esc(t.notes)+'</small>':'')+editRow(t)+'</li>'}return r};
+    h+='<ul class="tl">'+(rows.map(mrow).join('')||'<li class="empty">'+(fin.length?'All paid! 🎉':'No bills yet. Try “rent on the 1st every month 1200” or “pay plumber 250 on 5 Nov”.')+'</li>')+'</ul><p class="fine">Tick a bill when it’s paid; Mochi moves it to the next period. One-off bills are finished once paid.</p>'+
+      (fin.length?'<h3>Paid one-offs</h3><ul class="tl">'+fin.slice(0,15).map(t=>mrow({t,s:{state:'none'}})).join('')+'</ul>':'')}
   if(id==='patches'){h+=head('patches');const rows=L.filter(t=>!t.done).map(t=>({t,s:EX.state(t,now)})).sort((a,b)=>(a.t.date||'9').localeCompare(b.t.date||'9'));
     h+='<ul class="tl">'+(rows.map(({t,s})=>{let r='<li class="'+(s.state==='expired'?'bad':s.state==='soon'?'warn':'')+'"><span class="cd">'+(s.dd==null?'?':s.dd<0?'!':s.dd>99?Math.round(s.dd/30)+'m':s.dd+'d')+'</span>'+
       rowHead(t,'<div>'+esc(t.title)+'</div><small>'+(s.at?(s.state==='expired'?'expired ':'expires ')+fmtDay(s.at,now):'add a date')+' \u00b7 '+EXPLBL[t.type||'other']+' \u00b7 warns '+EX.lead(t)+' days before</small>')+'</li>';
@@ -1365,8 +1388,9 @@ function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.ass
   if(kind==='habit'){const hb=v.habit||{type:'daily'};F.push(inp('title','Habit','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('htype','How often',[['daily','Every day'],['timesPerDay','Several times a day'],['perWeek','Times a week'],['weekdays','On set days'],['everyN','Every few days']],hb.type)+inp('hn','How many / every N','number',hb.n||'','min="1" max="30"')+'</div>',
     '<div class="days">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>'<label class="row"><input type="checkbox" name="d'+i+'"'+((hb.days||[]).includes(i)?' checked':'')+'>'+d+'</label>').join('')+'</div>',inp('time','Time (optional)','time',v.time))}
   if(kind==='bill')F.push('<label class="row"><input type="checkbox" name="stepheads"'+((v.prepOff||[]).includes('heads')?'':' checked')+'> Heads-up 2 days before</label>');
-  if(kind==='bill')F.splice(F.length-1,0,inp('title','Bill','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('amount','Amount (optional)','number',v.amount,'step="0.01" min="0"')+selF('freq','How often',[['monthly','Monthly'],['quarterly','Every 3 months'],['yearly','Yearly']],v.freq||'monthly')+'</div>',
-    '<div class="two">'+inp('day','Day of month','number',v.day||new Date().getDate(),'min="1" max="31"')+selF('month','Month (yearly / start)',MONTHS_.map((m,i)=>[i+1,m]),v.month||new Date().getMonth()+1)+'</div>','<label class="row"><input type="checkbox" name="autopay"'+(v.autopay?' checked':'')+'> Paid automatically (autopay)</label>',inp('notes','Notes (optional)','text',v.notes,'maxlength="120"'));
+  if(kind==='bill')F.splice(F.length-1,0,inp('title','Bill','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('amount','Amount (optional)','number',v.amount,'step="0.01" min="0"')+selF('freq','How often',[['monthly','Monthly'],['quarterly','Every 3 months'],['yearly','Yearly'],['once','One-off (just once)']],v.freq||'monthly')+'</div>',
+    '<div class="two" id="brep"'+(v.freq==='once'?' hidden':'')+'>'+inp('day','Day of month','number',v.day||new Date().getDate(),'min="1" max="31"')+selF('month','Month (yearly / start)',MONTHS_.map((m,i)=>[i+1,m]),v.month||new Date().getMonth()+1)+'</div>',
+    '<div id="bonce"'+(v.freq==='once'?'':' hidden')+'>'+inp('due','Due date','date',v.date||dkey(new Date()))+'</div>','<label class="row"><input type="checkbox" name="autopay"'+(v.autopay?' checked':'')+'> Paid automatically (autopay)</label>',inp('notes','Notes (optional)','text',v.notes,'maxlength="120"'));
   if(kind==='expiry')F.push(inp('title','What expires','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('type','Type',Object.entries(EXPLBL),v.type||'other')+inp('date','Expiry date','date',v.date,'required')+'</div>',inp('lead','Warn me this many days before','number',v.lead??LEAD[v.type||'other'],'min="0" max="365"'));
   if(kind==='reminder'||kind==='event'){F.push(inp('title',kind==='event'?'Appointment / date':'Remind me to','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('date','Date','date',v.date||dkey(new Date()),'required')+inp('time','Exact time (optional)','time',v.window?'':v.time)+'</div>',
     selF('window','\u2026or a time of day',[['','\u2013']].concat(Object.keys(WIN_LBL).filter(k=>k!=='weekend').map(k=>[k,WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+' ('+fmtTime(winTime(k))+')'])),v.window||''));
@@ -1377,10 +1401,12 @@ function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.ass
       '<small>Birthday lead-ups</small><div class="two">'+inp('giftDays','Pick a gift (days before, 0 = off)','number',(v.prepOff||[]).includes('gift')?0:(v.giftDays??7),'min="0" max="60"')+inp('buyDays','Buy it (days before, 0 = off)','number',(v.prepOff||[]).includes('buy')?0:(v.buyDays??3),'min="0" max="60"')+'</div><label class="row"><input type="checkbox" name="stepwish"'+((v.prepOff||[]).includes('wish')?'':' checked')+'> Remind me to send wishes on the day</label>')}
   openSheet('<h2>'+(isNew?'New ':'Edit ')+{habit:'habit',bill:'bill',expiry:'expiry date',reminder:'reminder',event:'date',person:'person',idea:'idea'}[kind]+' <small>'+CATNAME[KIND_CAT[kind]]+'</small></h2><form id="ef">'+F.join('')+'<button class="wide" type="submit">'+(isNew?'Add':'Save changes')+'</button></form>');
   const f=$('ef');if(kind==='expiry')f.type.onchange=()=>{f.lead.value=LEAD[f.type.value]};
+  if(kind==='bill')f.freq.onchange=()=>{const o=f.freq.value==='once';$('brep').hidden=o;$('bonce').hidden=!o};
   f.onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));const p={kind};
     if(kind==='idea')p.title=d.title.trim();
     if(kind==='habit'){p.title=d.title.trim();p.habit={type:d.htype};if(['timesPerDay','perWeek','everyN'].includes(d.htype))p.habit.n=Math.max(1,+d.hn||(d.htype==='perWeek'?3:2));if(d.htype==='weekdays'){p.habit.days=[0,1,2,3,4,5,6].filter(i=>d['d'+i]);if(!p.habit.days.length)return say('Pick at least one day.')}p.time=d.time||null}
-    if(kind==='bill')Object.assign(p,{title:d.title.trim(),amount:d.amount===''?null:+d.amount,freq:d.freq,day:Math.min(31,Math.max(1,+d.day||1)),month:+d.month,autopay:!!d.autopay,notes:d.notes||''});
+    if(kind==='bill'){Object.assign(p,{title:d.title.trim(),amount:d.amount===''?null:+d.amount,freq:d.freq,day:Math.min(31,Math.max(1,+d.day||1)),month:+d.month,autopay:!!d.autopay,notes:d.notes||''});
+      if(d.freq==='once'){if(!fromKey(d.due))return say('Pick the due date.');p.date=d.due;p.day=+d.due.slice(8);p.month=+d.due.slice(5,7)}else if(t&&t.freq==='once'){p.date=null;if(t.paid)delete t.paid.once}}
     if(kind==='expiry')Object.assign(p,{title:d.title.trim(),type:d.type,date:d.date,lead:+d.lead});
     if(kind==='reminder'||kind==='event'){Object.assign(p,{title:d.title.trim(),date:d.date,window:d.window||null,time:d.window?winTime(d.window):(d.time||null)});if(kind==='event'){p.travel=+d.travel||0;p.prepOff=d.stepprep?[]:['prep']}}
     if(kind==='bill')p.prepOff=d.stepheads?[]:['heads'];
@@ -1392,15 +1418,15 @@ function openMenu(){sheetMode='menu';sheetCat=null;openSheet('<h2>'+esc(CFG.offi
   '<h3>Morning briefing</h3><label class="row"><input type="checkbox" id="bon"'+(SET().briefing===false?'':' checked')+'> Sesame briefs me the first time I open the app each day</label>'+
   '<label>Sesame\u2019s voice<select id="vmode"><option value="kathleen"'+(kvWanted()?' selected':'')+'>Kathleen (natural)</option><option value="phone"'+(kvWanted()?'':' selected')+'>Phone voice</option></select></label><p class="fine" id="kvst">'+esc(kvLabel())+'</p><button class="ghost" id="kvtest">\u25b6 Test Sesame\u2019s voice</button>'+
   (synth?'<label>Phone voice (backup)<select id="bvoice"><option value="">Automatic</option>'+synth.getVoices().filter(v=>/^en/i.test(v.lang)).map(v=>'<option'+(SET().voice===v.name?' selected':'')+'>'+esc(v.name)+'</option>').join('')+'</select></label>':'<p class="fine">This browser can\u2019t speak, so the briefing shows as captions.</p>')+
-  '<button class="wide" id="bnow">\u25b6 Play briefing now</button><h3>Your times</h3><div class="tgrid">'+Object.keys(WIN_DEF).map(k=>'<label>'+WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+(k==='weekend'?' (Sat)':'')+'<input type="time" data-win="'+k+'" value="'+winTime(k)+'"></label>').join('')+'</div>'+
+  '<button class="wide" id="bnow">\u25b6 Play briefing now</button>'+(typeof briefPushHTML==='function'?briefPushHTML():'')+'<h3>Your times</h3><div class="tgrid">'+Object.keys(WIN_DEF).map(k=>'<label>'+WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+(k==='weekend'?' (Sat)':'')+'<input type="time" data-win="'+k+'" value="'+winTime(k)+'"></label>').join('')+'</div>'+
   '<div class="tgrid"><label>Quiet from<input type="time" id="qs" value="'+SET().quietStart+'"></label><label>Quiet until<input type="time" id="qe" value="'+SET().quietEnd+'"></label></div>'+
   '<label>Preview time of day<input id="time" type="range" min="0" max="23.9" step=".1" value="'+hour.toFixed(1)+'"></label><button class="wide" id="live">Back to live time</button>'+
   '<label class="row"><input type="checkbox" id="pwr"'+(PWR.saver?' checked':'')+'> Battery saver (recommended \u2013 keeps the phone cool; animation is a little calmer)</label>'+
   '<label class="row"><input type="checkbox" id="lf"'+(lightFur()?' checked':'')+'> Lighter fur for slower phones (reloads)</label>'+
   (('Notification' in window)&&Notification.permission!=='granted'?'<button class="wide" id="np">Allow notifications</button>':'')+
   '<div class="two"><button class="wide" id="bk">Back up</button><button class="wide" id="rs">Restore backup</button></div><input type="file" id="rsf" accept="application/json" hidden>'+
-  nativeHTML()+calHTML()+geminiHTML()+googleHTML()+learnedHTML()+'<p class="fine">'+liveItems().length+' items saved on this device. Photos stay on this device and are not in backups.</p>');
-  nativeWire();calWire();geminiWire();googleWire();$('sheet').querySelectorAll('[data-win]').forEach(i=>i.onchange=()=>{if(i.value){SET().windows[i.dataset.win]=i.value;save()}});$('qs').onchange=e=>{if(e.target.value){SET().quietStart=e.target.value;persist()}};$('qe').onchange=e=>{if(e.target.value){SET().quietEnd=e.target.value;persist()}};
+  catDayHTML()+nativeHTML()+calHTML()+geminiHTML()+googleHTML()+learnedHTML()+'<p class="fine">'+liveItems().length+' items saved on this device. Photos stay on this device and are not in backups.</p>');
+  catDayWire();if(typeof briefPushWire==='function')briefPushWire();nativeWire();calWire();geminiWire();googleWire();$('sheet').querySelectorAll('[data-win]').forEach(i=>i.onchange=()=>{if(i.value){SET().windows[i.dataset.win]=i.value;save()}});$('qs').onchange=e=>{if(e.target.value){SET().quietStart=e.target.value;persist()}};$('qe').onchange=e=>{if(e.target.value){SET().quietEnd=e.target.value;persist()}};
   $('bon').onchange=e=>{SET().briefing=e.target.checked;persist()};$('vmode').onchange=e=>{SET().voiceMode=e.target.value;persist();if(kvWanted())kvInit();openMenu()};
   $('kvtest').onclick=()=>{const t='Hi! I\u2019m Sesame. This is how I\u2019ll read your briefing every morning.';mrrp();if(kvWanted()){kvInit();if(KV.state==='ready'){kvPlay(t).catch(e=>say('Kathleen couldn\u2019t speak: '+e.message));return}if(KV.state==='loading'){say(kvLabel()+' \u2013 try again when it\u2019s ready.');return}}
     if(synth){const u=new SpeechSynthesisUtterance(t);u.pitch=1.6;u.rate=1.05;const v=pickVoice();if(v)u.voice=v;synth.cancel();synth.speak(u)}else say('No voice available in this browser.')};if($('bvoice'))$('bvoice').onchange=e=>{SET().voice=e.target.value||null;persist()};$('bnow').onclick=()=>startBriefing();
@@ -1425,8 +1451,16 @@ function draftSummary(d){const x=[];if(d.kind==='idea')x.push('into the jar, no 
   if(d.kind==='reminder'||d.kind==='event')x.push((d.date?fmtDay(fromKey(d.date)):'')+(d.window?' \u00b7 '+WIN_LBL[d.window]+' ('+fmtTime(winTime(d.window))+')':d.time?' '+fmtTime(d.time):''));
   if(d.kind==='person'){if(d.birthday)x.push('birthday '+new Date(2000,+d.birthday.slice(0,2)-1,+d.birthday.slice(3)).toLocaleDateString([],{day:'numeric',month:'short'})+(d.year?' '+d.year:''));if(d.anniversary)x.push('anniversary');if(d.touchDays)x.push('keep in touch every '+d.touchDays+' days')}
   return x.filter(Boolean).join(' \u00b7 ')}
-function renderDraft(){const box=$('qprev');if(!draft){box.classList.remove('open');if(!sheetMode)document.body.classList.remove('busy');return}
-  box.innerHTML='<div class="chips">'+Object.keys(CATNAME).map(k=>'<button class="chip'+(k===draft.cat?' on':'')+'" data-c="'+k+'"><span class="dot" style="background:'+DOT[k]+'"></span>'+CATNAME[k]+'</button>').join('')+'</div>'+
+/* which cat looks after what: shown above the typing bar while you type; the cat who'll take it lights up */
+const CHIPJOB={ginger:'habits',mochi:'bills',patches:'expiry dates',pepper:'reminders',sesame:'people & dates',jar:'anything else'};
+const CHIPEX={ginger:'vitamins every morning',mochi:'rent 1200 on the 1st every month',patches:'passport expires 12 May 2030',pepper:'call the bank tomorrow 10am',sesame:'dentist Friday 3pm',jar:'idea: weekend trip to Penang'};
+const catChips=on=>'<div class="chips">'+Object.keys(CATNAME).map(k=>'<button class="chip'+(k===on?' on':'')+'" data-c="'+k+'"><span class="dot" style="background:'+DOT[k]+'"></span><span class="cj"><b>'+CATNAME[k]+'</b><small>'+CHIPJOB[k]+'</small></span></button>').join('')+'</div>';
+let qHint=false;
+function renderDraft(){const box=$('qprev');if(!draft){
+    if(qHint&&!$('q').value.trim()&&!sheetMode){box.innerHTML=catChips(null)+'<p class="qhint">Tap a cat to see an example, or just type – the right cat lights up.</p>';box.classList.add('open');
+      box.querySelectorAll('.chip').forEach(b=>{b.onmousedown=e=>e.preventDefault();b.onclick=()=>{const q=$('q');q.value=CHIPEX[b.dataset.c];q.focus();q.dispatchEvent(new Event('input'))}});return}
+    box.classList.remove('open');if(!sheetMode)document.body.classList.remove('busy');return}
+  box.innerHTML=catChips(draft.cat)+
     '<div class="pv">'+(pendingPhoto?'<img class="qph" data-photo="'+pendingPhoto+'" alt="Attached photo">':'')+'<b>'+esc(draft.title||draft.name)+'</b> <small>'+esc(JOBS[draft.cat]+' \u00b7 '+draftSummary(draft))+(draft.learned&&draft.cat===draft.suggested?' \u00b7 learned from you':'')+(draft.ai?' \u00b7 \u2728 read by Gemini':'')+'</small>'+(draft.notes&&draft.notes.length?'<em>'+esc(draft.notes.join(', '))+'</em>':'')+'</div>'+
     '<div class="two"><button class="ghost" id="qedit">Edit details</button><button class="wide" id="qsave">Add to '+CATNAME[draft.cat]+'</button></div>';box.classList.add('open');document.body.classList.add('busy');
   box.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{draft=draftFor(draft,b.dataset.c);renderDraft()});
@@ -1435,6 +1469,14 @@ function commitDraft(){if(!draft||!(draft.title||draft.name))return;const d=draf
   if(d.suggested&&d.cat!==d.suggested)learn(d.title||d.name,d.cat);if(pendingPhoto){d.photos=[pendingPhoto];pendingPhoto=null}renderDraft();
   if((d.kind==='expiry'||d.kind==='event')&&!d.date)return openForm(d.kind,null,d);
   const {notes,cat,suggested,learned,...p}=d;addItem(p);greet(cat);say(CATNAME[cat]+' picked up "'+(p.title||p.name)+'".');if(sheetCat===cat)openCat(cat,true)}
+
+/* menu: when the cats work, eat, nap, play and sleep */
+function catDayHTML(){const c=catDay().c,L={wake:'Wake up',work:'Start work',lunch:'Lunch',siesta:'Siesta until',play:'Playtime from',playEnd:'Playtime until',sleep:'Lights out'};
+  return'<h3>Cats’ day</h3><p class="fine">When the cats work, eat, nap and play in the office.</p><div class="tgrid">'+Object.keys(L).map(k=>'<label>'+L[k]+'<input type="time" data-cd="'+k+'" value="'+esc(c[k])+'"></label>').join('')+'</div>'+
+  '<label class="row"><input type="checkbox" id="cdwk"'+(c.weekendOff?' checked':'')+'> Weekends off – on Saturday and Sunday the cats laze about and play</label><button class="ghost" id="cdreset">Back to the usual times</button>'}
+function catDayWire(){const put=(k,v)=>{const s=SET();s.catDay=Object.assign({},s.catDay||{},{[k]:v});CATDAY_C=null;persist()};
+  $('sheet').querySelectorAll('[data-cd]').forEach(i=>i.onchange=()=>{if(/^\d{1,2}:\d{2}$/.test(i.value))put(i.dataset.cd,i.value)});
+  $('cdwk').onchange=e=>put('weekendOff',e.target.checked);$('cdreset').onclick=()=>{delete SET().catDay;CATDAY_C=null;persist();openMenu();say('The cats are back on their usual hours.')}}
 
 /* (timing engine below) */
 /* ===================== Stage 3: timing engine ===================== */
@@ -1802,6 +1844,7 @@ $('p_vac').onclick=()=>{VAC.manual=!VAC.manual;if(VAC.manual&&playMode)setPlay(p
 $('calBtn').onclick=()=>sheetMode==='cal'?closeSheet():(calSel=null,openCalendar());$('ideaBtn').onclick=()=>sheetMode==='cat'&&sheetCat==='jar'?closeSheet():openCat('jar');
 $('agendaBtn').onclick=()=>sheetMode==='agenda'?closeSheet():openAgenda();$('menuBtn').onclick=()=>sheetMode==='menu'?closeSheet():openMenu();
 $('q').addEventListener('input',e=>{const v=e.target.value.trim();draft=v.length>1?parseSmart(v):null;renderDraft()});
+$('q').addEventListener('focus',()=>{qHint=true;if(!draft)renderDraft()});$('q').addEventListener('blur',()=>{setTimeout(()=>{if(document.activeElement!==$('q')){qHint=false;if(!draft)renderDraft()}},150)});
 if(!SR)$('qmic').style.display='none';$('qmic').onclick=toggleVoice;$('qcam').onclick=quickPhoto;
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();quickSubmit()}});
 $('qadd').onclick=()=>quickSubmit();
@@ -1885,7 +1928,8 @@ function googleHTML(){const c=gsCreds(),s=SET(),em=s.emailTo!=null?s.emailTo:(CF
   '<label class="row"><input type="checkbox" id="gsdue"'+(s.emailDue===false?'':' checked')+'> Email me when something is due</label>'+
   '<label class="row"><input type="checkbox" id="gsesc"'+(s.emailEscalate===false?'':' checked')+'> Email me again when it’s over a day late</label>'+
   '<label class="row"><input type="checkbox" id="gspush"'+(s.push===false?'':' checked')+'> Phone push alerts (ntfy app)</label>'+
-  (tp?'<p class="fine">Your ntfy channel: <b id="gstp">'+esc(tp)+'</b> <button class="mini" id="gscopy">copy</button><br>In the ntfy app tap + and subscribe to this name, or <a href="ntfy://ntfy.sh/'+esc(tp)+'">open it in ntfy</a> / <a href="https://ntfy.sh/'+esc(tp)+'" target="_blank" rel="noopener">on the web</a>. Keep the name private: anyone with it can read your alerts.</p>':'')+
+  (typeof NV!=='undefined'&&NV.on?'<p class="fine">On this Android phone the cats already ring by themselves, so “due” emails and ntfy push are off – turning them on gives you the same alert twice.</p>':'')+
+  (tp&&!(typeof NV!=='undefined'&&NV.on&&s.push===false)?'<p class="fine">Your ntfy channel: <b id="gstp">'+esc(tp)+'</b> <button class="mini" id="gscopy">copy</button><br>In the ntfy app tap + and subscribe to this name, or <a href="ntfy://ntfy.sh/'+esc(tp)+'">open it in ntfy</a> / <a href="https://ntfy.sh/'+esc(tp)+'" target="_blank" rel="noopener">on the web</a>. Keep the name private: anyone with it can read your alerts.</p>':'')+
   '<div class="two"><button class="ghost" id="gssync">Sync now</button><button class="ghost" id="gstest">Send test alert</button></div>':'');}
 function googleWire(){const set=(k,v)=>{SET()[k]=v;persist();gsSoon(500)};
   /* any menu setting you change syncs a moment later */
@@ -1956,7 +2000,7 @@ function gmToday(){const n=new Date();return 'Today is '+n.toLocaleDateString('e
 const GM_ADD_SYS=`You turn one short note into ONE item for a personal reminders app with five cat helpers. The user may mix English and Malay. Money is Malaysian ringgit (RM) unless another currency is written.
 Return ONLY a JSON object. Choose "kind":
 - "habit": something repeated to build a routine. Fields: title, habit = {"type":"daily"} | {"type":"weekdays","days":[0-6, 0=Sunday]} | {"type":"everyN","n":days} | {"type":"timesPerDay","n":count} | {"type":"perWeek","n":count}; optional time "HH:MM" or window.
-- "bill": a payment that repeats. Fields: title, amount (number, no currency), freq "monthly"|"quarterly"|"yearly", day (1-31), month (1-12, yearly only), autopay (true if paid automatically).
+- "bill": a payment. Fields: title, amount (number, no currency), freq "monthly"|"quarterly"|"yearly"|"once", day (1-31), month (1-12, yearly only), date (YYYY-MM-DD, only for freq "once"), autopay (true if paid automatically). Use freq "once" for a one-off payment with a single due date (e.g. "pay the plumber RM250 on 5 Nov", "one-off fee due Friday").
 - "expiry": something that expires or must be renewed. Fields: title, date "YYYY-MM-DD", type "id"|"insurance"|"warranty"|"voucher"|"trial"|"membership"|"other".
 - "reminder": a one-off task to do. Fields: title, date "YYYY-MM-DD", and either time "HH:MM" or window.
 - "event": an appointment or occasion to attend. Fields: title, date, and time or window.
@@ -1974,7 +2018,7 @@ function gmCleanItem(o){if(!o||typeof o!=='object')return null;const k=String(o.
   else d.title=t[0].toUpperCase()+t.slice(1);
   if(k==='habit'){const h=o.habit||{},ty=h.type;d.habit=ty==='weekdays'&&Array.isArray(h.days)&&h.days.length?{type:'weekdays',days:[...new Set(h.days.map(x=>int(x,0,6)).filter(x=>x!=null))].sort()}:
       ['everyN','timesPerDay','perWeek'].includes(ty)&&int(h.n,1,60)?{type:ty,n:int(h.n,1,60)}:{type:'daily'};if(d.habit.type==='weekdays'&&!d.habit.days.length)d.habit={type:'daily'}}
-  if(k==='bill'){const a=+String(o.amount??'').replace(/[^\d.]/g,'');if(a>0&&a<1e8)d.amount=Math.round(a*100)/100;d.freq=['monthly','quarterly','yearly'].includes(o.freq)?o.freq:'monthly';d.day=int(o.day,1,31)||new Date().getDate();if(d.freq==='yearly')d.month=int(o.month,1,12)||new Date().getMonth()+1;if(o.autopay===true)d.autopay=true}
+  if(k==='bill'){const a=+String(o.amount??'').replace(/[^\d.]/g,'');if(a>0&&a<1e8)d.amount=Math.round(a*100)/100;d.freq=['monthly','quarterly','yearly','once'].includes(o.freq)?o.freq:'monthly';if(d.freq==='once'){const dd=date(o.date)||dkey(new Date());if(!date(o.date))d.notes.push('Check the date');d.date=dd;d.day=+dd.slice(8);d.month=+dd.slice(5,7)}else d.day=int(o.day,1,31)||new Date().getDate();if(d.freq==='yearly')d.month=int(o.month,1,12)||new Date().getMonth()+1;if(o.autopay===true)d.autopay=true}
   if(k==='expiry'){const dt=date(o.date);if(dt)d.date=dt;d.type=EXPLBL[o.type]?o.type:'other'}
   if(k==='reminder'||k==='event'){d.date=date(o.date)||(k==='reminder'?dkey(new Date()):null);if(!d.date)delete d.date}
   if(k==='habit'||k==='reminder'||k==='event'){const w=win(o.window),tm=time(o.time);if(w){d.window=w;d.time=winTime(w)}else if(tm)d.time=tm}
@@ -2068,11 +2112,21 @@ function geminiWire(){$('gmshow').onclick=()=>{const i=$('gmkey');i.type=i.type=
   $('gmmodel').onchange=e=>{const c=gmCred();c.model=e.target.value.trim();gmSetCred(c);const u=gmUse();u.block={};gmPutUse(u)}}
 
 
+
 /* ===================== Android app: real alarms that ring even when the app is closed ===================== */
 /* Only runs inside the Purrminders Android app. It works out, with the same rules the app uses, when each alert will be due
    over the next 7 days and hands those times to Android. Done / Snooze / Paid buttons work from the notification. */
 const NV={on:!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()),LN:null,busy:false,timer:null,perm:null,last:0,count:0};
-const NV_DAYS=7,NV_MAX=200;/* Android allows up to 500 alarms per app */
+const NV_DAYS=7,NV_MAX=200,NV_CATS=['ginger','mochi','patches','pepper','sesame'];
+/* which notification channel (and so which sound) a cat's alert uses */
+function nvChan(cat){return SET().meow===false||!NV_CATS.includes(cat)?'alerts':'meow_'+cat}
+/* the morning briefing notification: when, and what it says */
+function briefTime(d){const s=SET(),wk=d.getDay()===0||d.getDay()===6;if(s.briefPush===false)return null;if(wk&&s.briefWkd==='off')return null;return wk&&s.briefWkd==='custom'&&s.briefWkdAt?s.briefWkdAt:(s.briefAt||'08:00')}
+function briefNote(at){const now=new Date(at),E_=entries(now).filter(e=>e.t.kind!=='idea'),od=E_.filter(e=>e.group==='attention'),td=E_.filter(e=>e.group==='today'),
+    cev=typeof calOn==='function'?calOn(now).filter(e=>e.allDay||e.end>now):[],nm=e=>{const t=e.t,x=t.title||t.name,tm=!e.step&&effTime(t)&&daysBetween(now,e.at)===0?' '+fmtTime(effTime(t)):'';return(e.step?e.step.label:x)+(t.amount&&t.kind==='bill'?' ('+money(t.amount)+')':'')+tm},
+    lines=[...od.slice(0,3).map(e=>'⚠️ '+nm(e)),...td.slice(0,6).map(nm),...cev.slice(0,3).map(e=>'📅 '+e.title+(e.allDay?'':' '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()))))],n=od.length+td.length+cev.length;
+  return{title:'☀️ Sesame: Good morning!'+(n?' '+n+' thing'+(n===1?'':'s')+' today':''),body:n?lines.slice(0,3).join(' · ')+(n>3?' …':''):'Nothing on today. Tap to hear your briefing.',
+    large:n?lines.join('\n')+(n>lines.length?'\n…and '+(n-lines.length)+' more':'')+'\n\nTap to hear the full briefing.':'A clear day! Tap to hear your briefing.'}}/* Android allows up to 500 alarms per app */
 function nvHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>1)%2000000000+1}
 /* every moment over the next days when an alert would go off, using the app's own rules.
    Items don't affect each other's alerts, so each item is planned on its own, looking only at the moments
@@ -2114,35 +2168,60 @@ function nvSoon(ms){if(!NV.on)return;clearTimeout(NV.timer);NV.timer=setTimeout(
 async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;return}NV.busy=true;NV.again=false;
   try{nvCatchUp();
     /* nothing changed since the last plan (same items, settings, calendar, day and alerts)? then there's no work to do */
-    const fp=DB.items.length+'|'+DB.items.reduce((h,t)=>(h*31+(t.updated||0)%1e9)%2147483647,7)+'|'+JSON.stringify(SET())+'|'+(typeof CAL!=='undefined'?CAL.loaded+'|'+JSON.stringify(calPrefs()):'')+'|'+dkey(new Date())+'|'+Object.keys(DB.alerted).length;
+    const fp=DB.items.length+'|'+DB.items.reduce((h,t)=>(h*31+(t.updated||0)%1e9)%2147483647,7)+'|'+JSON.stringify(SET())+'|'+(typeof CAL!=='undefined'?CAL.loaded+'|'+JSON.stringify(calPrefs()):'')+'|'+dkey(new Date())+'|'+Object.keys(DB.alerted).length+'|'+(DB.lastBriefing||'');
     if(fp===NV.fp&&Date.now()-NV.last<6*36e5&&NV.count){NV.skipped=(NV.skipped||0)+1;return}
     const now=Date.now(),fut=await futureAlerts(now,NV_DAYS,DB.alerted,()=>new Promise(r=>setTimeout(r,0)));
     /* several alerts in the same minute become one notification, like in the app */
     const by=new Map();for(const f of fut){const m=Math.floor(f.at/60e3);if(!by.has(m))by.set(m,[]);by.get(m).push(f)}
     const notes=[];for(const [m,g] of [...by.entries()].sort((a,b)=>a[0]-b[0])){if(notes.length>=NV_MAX)break;const at=m*60e3+1000;
       if(g.length===1){const f=g[0],x=alertText(f.p),t=f.p.e.t,step=!!f.p.e.step;
-        notes.push({id:nvHash(f.k),title:x.title,body:x.body||x.msg,at,keys:[f.k],item:t.id,step:step?f.p.e.step.id:null,type:step?'step':t.kind==='bill'&&!t.autopay?'bill':t.kind==='habit'?'habit':t.autopay?'':'item'})}
-      else{const titles=g.map(f=>alertText(f.p).title);notes.push({id:nvHash(g.map(f=>f.k).join(',')),title:g.length+' things need you',body:titles.slice(0,4).join(' · ')+(g.length>4?' …':''),at,keys:g.map(f=>f.k),type:''})}}
+        notes.push({id:nvHash(f.k),cat:f.p.e.cat,title:x.title,body:x.body||x.msg,at,keys:[f.k],item:t.id,step:step?f.p.e.step.id:null,type:step?'step':t.kind==='bill'&&!t.autopay?'bill':t.kind==='habit'?'habit':t.autopay?'':'item'})}
+      else{const titles=g.map(f=>alertText(f.p).title);notes.push({id:nvHash(g.map(f=>f.k).join(',')),cat:g[0].p.e.cat,title:g.length+' things need you',body:titles.slice(0,4).join(' · ')+(g.length>4?' …':''),at,keys:g.map(f=>f.k),type:''})}}
     /* calendar reminders join the list, in time order */
-    if(typeof calAlarms==='function'){for(const c of calAlarms(now,now+NV_DAYS*864e5))if(!DB.alerted[c.k])notes.push({id:nvHash(c.k),title:c.title,body:c.body,at:Math.floor(c.at/60e3)*60e3+1000,keys:[c.k],type:''});notes.sort((a,b)=>a.at-b.at);notes.length=Math.min(notes.length,NV_MAX)}
+    if(typeof calAlarms==='function'){for(const c of calAlarms(now,now+NV_DAYS*864e5))if(!DB.alerted[c.k])notes.push({id:nvHash(c.k),cat:'sesame',title:c.title,body:c.body,at:Math.floor(c.at/60e3)*60e3+1000,keys:[c.k],type:''});notes.sort((a,b)=>a.at-b.at);notes.length=Math.min(notes.length,NV_MAX)}
+    /* the morning briefing notification for each of the next days (skipped for today if you've already heard it) */
+    {const briefs=[];for(let i=0;i<=NV_DAYS;i++){const d=new Date(now+i*864e5),tm=briefTime(d);if(!tm)continue;const[h,m]=tm.split(':').map(Number),at=new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m).getTime()+1000;
+        if(at<=now||DB.lastBriefing===dkey(d))continue;const b=briefNote(at),k='brief|'+dkey(d);briefs.push({id:nvHash(k),cat:'sesame',title:b.title,body:b.body,large:b.large,at,keys:[k],brief:dkey(d),type:''})}
+      if(briefs.length){notes.length=Math.min(notes.length,NV_MAX-briefs.length);notes.push(...briefs);notes.sort((a,b)=>a.at-b.at)}}
     const pend=await NV.LN.getPending().catch(()=>({notifications:[]}));const want=new Set(notes.map(n=>n.id));
     const old=(pend.notifications||[]).filter(n=>!want.has(+n.id)).map(n=>({id:+n.id}));if(old.length)await NV.LN.cancel({notifications:old});
     const prevById=new Map(nvState().map(n=>[n.id,n]));
-    const fresh=notes.filter(n=>{const p=prevById.get(n.id);return!p||p.at!==n.at||p.title!==n.title||p.body!==n.body||!(pend.notifications||[]).some(x=>+x.id===n.id)});
-    if(fresh.length)await NV.LN.schedule({notifications:fresh.map(n=>({id:n.id,title:'🐾 '+n.title,body:n.body||'',schedule:{at:new Date(n.at),allowWhileIdle:true},
-      actionTypeId:n.type||undefined,channelId:'alerts',smallIcon:'ic_stat_purr',iconColor:'#ff9a62',extra:{keys:n.keys,item:n.item||null,step:n.step||null}}))});
-    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body})));NV.last=Date.now();NV.count=notes.length;NV.fp=fp;NV.until=notes.length?notes[notes.length-1].at:0;NV.full=notes.length>=NV_MAX;NV.err=null;
+    for(const n of notes)n.ch=nvChan(n.cat);
+    /* "Done" on a notification also clears any later follow-up for the same thing (e.g. "reminder again" half an hour on) */
+    for(const n of notes)if(n.item&&n.type&&n.type!=='habit'){const occ=n.keys[0].split('|')[1],c=notes.filter(o=>o!==n&&o.item===n.item&&o.at>n.at&&o.keys.some(k=>k.split('|')[1]===occ)).map(o=>o.id);if(c.length)n.cancel=c}
+    const fresh=notes.filter(n=>{const p=prevById.get(n.id);return!p||p.at!==n.at||p.title!==n.title||p.body!==n.body||p.ch!==n.ch||(p.large||null)!==(n.large||null)||String(p.cancel||'')!==String(n.cancel||'')||!(pend.notifications||[]).some(x=>+x.id===n.id)});
+    if(fresh.length)await NV.LN.schedule({notifications:fresh.map(n=>({id:n.id,title:n.brief?n.title:'🐾 '+n.title,body:n.body||'',largeBody:n.large||undefined,schedule:{at:new Date(n.at),allowWhileIdle:true},
+      actionTypeId:n.type||undefined,channelId:n.ch,sound:n.ch==='alerts'?undefined:n.ch+'.ogg',smallIcon:'ic_stat_purr',iconColor:'#ff9a62',extra:{keys:n.keys,item:n.item||null,step:n.step||null,brief:n.brief||null,cancel:n.cancel||null}}))});
+    nvPut(notes.map(n=>({id:n.id,at:n.at,keys:n.keys,title:n.title,body:n.body,ch:n.ch,large:n.large||null,cancel:n.cancel||null})));NV.last=Date.now();NV.count=notes.length;NV.fp=fp;NV.until=notes.length?notes[notes.length-1].at:0;NV.full=notes.length>=NV_MAX;NV.err=null;
   }catch(e){NV.err=String(e&&e.message||e)}finally{NV.busy=false;if(sheetMode==='menu'&&$('nvst'))$('nvst').textContent=nvLabel();if(NV.again)nvSoon(300)}}
 function nvLabel(){if(!NV.on)return'';if(NV.perm&&NV.perm!=='granted')return'⚠️ Notifications are blocked – allow them in Android Settings → Apps → Purrminders → Notifications.';
   return NV.err?'⚠️ '+NV.err:NV.last?'✅ '+NV.count+' alarm'+(NV.count===1?'':'s')+' set'+(NV.full&&NV.until?' up to '+fmtDay(new Date(NV.until))+' (that\u2019s the limit \u2013 opening the app tops them up)':' for the next '+NV_DAYS+' days. Open the app at least once a week to keep them topped up')+'.':'Setting alarms…'}
 function nvAction(a){const n=a.notification||{},x=n.extra||{},t=x.item?DB.items.find(i=>i.id===x.item):null;
   for(const k of x.keys||[]){if(!DB.alerted[k])DB.alerted[k]=Date.now();if(typeof gsSeen==='function')gsSeen(k)}
+  if(x.brief){persist();setTimeout(()=>{if(!BRIEF.on)startBriefing();setTimeout(()=>{if(BRIEF.on&&!BRIEF.playing&&!BRIEF.readOnly&&$('bpp'))$('bpp').click()},700)},500);return}
   if(a.actionId==='tap'||!t){persist();if(!t&&(x.keys||[]).length>1)setTimeout(()=>openAgenda(),400);else if(t)setTimeout(()=>openCat(t.cat),400);return}
   if(a.actionId==='done'||a.actionId==='paid'){if(x.step){t.prep=t.prep||{};t.prep[x.step]=true;t.updated=Date.now();logDone(t.cat);save();say('✓ Done: '+(t.title||t.name))}else complete(t)}
   else if(a.actionId==='snooze'){snooze(t,'1h');say('⏰ Snoozed '+(t.title||t.name)+' for an hour.')}
   nvSoon(500)}
-async function nvInit(){if(!NV.on)return;nvCatchUp();/* before the app's own first check, so alarms that already rang don't ring again */const P=window.Capacitor.Plugins||{};NV.LN=P.LocalNotifications;if(!NV.LN){NV.err='alarm module missing';return}
+/* Done / Paid pressed on a notification while the app was closed: Android saved it in a small queue; apply those ticks now */
+async function nvDrain(){const PF=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Preferences;if(!NV.on||!PF||NV.draining)return;NV.draining=true;let n=0;
+  try{const ks=((await PF.keys()).keys||[]).filter(k=>/^purr_act_/.test(k)).sort();
+    for(const key of ks){let q=null;try{q=JSON.parse((await PF.get({key})).value||'null')}catch(e){}await PF.remove({key});if(!q)continue;
+      const x=q.extra||{},at=+q.at||Date.now(),t=x.item?DB.items.find(i=>i.id===x.item&&!i.deleted):null;
+      for(const k of x.keys||[]){if(!DB.alerted[k])DB.alerted[k]=at;if(typeof gsSeen==='function')gsSeen(k)}
+      if(!t||!(q.action==='done'||q.action==='paid'))continue;n++;
+      if(x.step){t.prep=t.prep||{};t.prep[x.step]=true;t.updated=Date.now();logDone(t.cat)}
+      else if(t.kind==='habit'){const dk=dkey(new Date(at));if(dk===dkey(new Date()))HB.tick(t,1);else{t.log=t.log||{};t.log[dk]=Math.min(HB.target(t),(t.log[dk]||0)+1);t.updated=Date.now()}}
+      else if(t.kind==='bill'){if(!BL.finished(t))BL.pay(t)}
+      else if(!t.done)complete(t)}
+  }catch(e){}finally{NV.draining=false}
+  if(n){save();say('✓ '+n+' thing'+(n===1?'':'s')+' ticked off from your notifications.')}else persist()}
+async function nvInit(){if(!NV.on)return;nvCatchUp();
+  /* this phone rings by itself, so the Google script's ntfy push and "due" emails would only repeat the same alert: off by default here (once) */
+  {const s=SET();if(!s.nvDupFix){s.push=false;s.emailDue=false;s.nvDupFix=1;persist()}}/* before the app's own first check, so alarms that already rang don't ring again */const P=window.Capacitor.Plugins||{};NV.LN=P.LocalNotifications;if(!NV.LN){NV.err='alarm module missing';return}
   try{await NV.LN.createChannel({id:'alerts',name:'Cat alerts',description:'Reminders from your cats',importance:5,visibility:1,vibration:true}).catch(()=>{});
+    /* each cat calls with its own voice: Ginger hisses, Mochi mews, Patches grumbles, Pepper trills, Sesame purrs */
+    for(const c of NV_CATS)await NV.LN.createChannel({id:'meow_'+c,name:CATNAME[c]+' ('+JOBS[c].toLowerCase()+')',description:CATNAME[c]+'’s reminders, with '+CATNAME[c]+'’s own meow',importance:5,visibility:1,vibration:true,sound:'meow_'+c+'.ogg'}).catch(()=>{});
     await NV.LN.registerActionTypes({types:[
       {id:'item',actions:[{id:'done',title:'Done'},{id:'snooze',title:'Snooze 1h'}]},
       {id:'bill',actions:[{id:'paid',title:'Paid'},{id:'snooze',title:'Snooze 1h'}]},
@@ -2152,16 +2231,23 @@ async function nvInit(){if(!NV.on)return;nvCatchUp();/* before the app's own fir
     let p=await NV.LN.checkPermissions();if(p.display!=='granted')p=await NV.LN.requestPermissions();NV.perm=p.display;
     if(NV.LN.checkExactNotificationSetting){const ex=await NV.LN.checkExactNotificationSetting().catch(()=>null);NV.exact=!ex||ex.exact_alarm===true||ex.exact_alarm==='granted'}
   }catch(e){NV.err=String(e&&e.message||e)}
-  nvSchedule();
-  const App=P.App;if(App&&App.addListener){App.addListener('appStateChange',s=>{if(s.isActive){nvCatchUp();nvSoon(800)}});
+  await nvDrain();nvSchedule();setInterval(nvDrain,15000);
+  const App=P.App;if(App&&App.addListener){App.addListener('appStateChange',s=>{if(s.isActive){nvCatchUp();nvDrain();nvSoon(800)}});
     /* Android back button: close what's open first, only then leave the app */
     App.addListener('backButton',()=>{if(typeof BRIEF!=='undefined'&&BRIEF.on)return stopBriefing(true);if(sheetMode){closeSheet();return}if(draft){draft=null;$('q').value='';renderDraft();return}if($('pepper').classList.contains('open')){$('pepper').classList.remove('open');return}App.minimizeApp?App.minimizeApp():App.exitApp()})}
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)nvCatchUp()});}
+function briefPushHTML(){if(!NV.on)return'';const s=SET(),w=s.briefWkd||'same';
+  return'<label class="row"><input type="checkbox" id="bpush"'+(s.briefPush===false?'':' checked')+'> Morning notification from Sesame (tap it to hear the briefing)</label>'+
+  '<div class="tgrid"><label>Briefing time<input type="time" id="bpat" value="'+esc(s.briefAt||'08:00')+'"></label><label>Weekends<select id="bpwk"><option value="same"'+(w==='same'?' selected':'')+'>Same time</option><option value="custom"'+(w==='custom'?' selected':'')+'>Different time</option><option value="off"'+(w==='off'?' selected':'')+'>No notification</option></select></label>'+
+  '<label id="bpwkl"'+(w==='custom'?'':' hidden')+'>Weekend time<input type="time" id="bpwat" value="'+esc(s.briefWkdAt||'09:00')+'"></label></div>'}
+function briefPushWire(){if(!NV.on||!$('bpush'))return;const s=SET(),ch=()=>{persist();nvSoon(300)};
+  $('bpush').onchange=e=>{s.briefPush=e.target.checked;ch()};$('bpat').onchange=e=>{if(e.target.value){s.briefAt=e.target.value;ch()}};
+  $('bpwk').onchange=e=>{s.briefWkd=e.target.value;$('bpwkl').hidden=e.target.value!=='custom';ch()};$('bpwat').onchange=e=>{if(e.target.value){s.briefWkdAt=e.target.value;ch()}}}
 function nativeHTML(){if(!NV.on)return'';return'<h3>Android alarms</h3><p class="fine">Your cats set real Android alarms, so reminders ring on time even when the app is closed or you’re offline. You don’t need the ntfy app on this phone.</p><p class="fine" id="nvst">'+esc(nvLabel())+'</p>'+
-  (NV.exact===false&&NV.perm==='granted'?'<p class="fine">⚠️ Exact alarms are off, so Android may deliver alerts a few minutes late. <button class="mini" id="nvex">Turn on</button></p>':'')+'<button class="ghost" id="nvtest">Send a test alarm in 10 seconds</button>'}
-function nativeWire(){if(!NV.on)return;if($('nvex'))$('nvex').onclick=()=>NV.LN.changeExactNotificationSetting&&NV.LN.changeExactNotificationSetting().catch(()=>{});
-  $('nvtest').onclick=async()=>{try{await NV.LN.schedule({notifications:[{id:1999999999,title:'🐾 Pepper: test alarm',body:'If you see this, Android alarms work – even with the app closed.',schedule:{at:new Date(Date.now()+10e3),allowWhileIdle:true},channelId:'alerts',smallIcon:'ic_stat_purr',iconColor:'#ff9a62'}]});say('Test alarm in 10 seconds – you can close the app.')}catch(e){say('Couldn’t set the test alarm: '+e.message)}}}
-
+  (NV.exact===false&&NV.perm==='granted'?'<p class="fine">⚠️ Exact alarms are off, so Android may deliver alerts a few minutes late. <button class="mini" id="nvex">Turn on</button></p>':'')+'<label class="row"><input type="checkbox" id="nvmeow"'+(SET().meow===false?'':' checked')+'> Meow sounds – each cat calls with its own voice (off = your phone’s normal sound)</label>'+
+  '<button class="ghost" id="nvtest">Send a test alarm in 10 seconds</button>'}
+function nativeWire(){if(!NV.on)return;if($('nvmeow'))$('nvmeow').onchange=e=>{SET().meow=e.target.checked;persist();nvSoon(300)};if($('nvex'))$('nvex').onclick=()=>NV.LN.changeExactNotificationSetting&&NV.LN.changeExactNotificationSetting().catch(()=>{});
+  $('nvtest').onclick=async()=>{try{await NV.LN.schedule({notifications:[{id:1999999999,title:'🐾 Pepper: test alarm',body:'If you see this, Android alarms work – even with the app closed.',schedule:{at:new Date(Date.now()+10e3),allowWhileIdle:true},channelId:nvChan('pepper'),sound:nvChan('pepper')==='alerts'?undefined:'meow_pepper.ogg',smallIcon:'ic_stat_purr',iconColor:'#ff9a62'}]});say('Test alarm in 10 seconds – you can close the app.')}catch(e){say('Couldn’t set the test alarm: '+e.message)}}}
 /* ===================== Phone calendar (Android app): show your calendar's events inside Purrminders ===================== */
 /* Read-only. Events stay on this phone: they are never synced, emailed or sent to Gemini. Your calendar app keeps doing their alerts. */
 const CAL={on:false,P:null,events:[],cals:[],loaded:0,err:null,perm:null,busy:false};
