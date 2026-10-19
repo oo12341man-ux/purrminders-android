@@ -21,13 +21,21 @@ open(man, 'w').write(s)
 jdir = 'android/app/src/main/java/com/purrminders/cats'
 if not os.path.isdir(jdir): sys.exit('app java folder not found: ' + jdir)
 shutil.copy('android-src/PurrActionReceiver.java', jdir)
-ln = 'node_modules/@capacitor/local-notifications/android/src/main/java/com/capacitorjs/plugins/localnotifications/LocalNotificationManager.java'
+ln = None
+for root, _, files in os.walk('node_modules/@capacitor/local-notifications/android'):
+    for f in files:
+        if f.startswith('LocalNotificationManager.'): ln = os.path.join(root, f)
+if not ln: sys.exit('notification plugin source not found')
+print('notification buttons: patching', ln)
 j = open(ln).read()
 if 'PurrActionReceiver' not in j:
     j, nl = re.subn(r'PendingIntent actionPendingIntent = PendingIntent\.getActivity\(',
         'if (!"snooze".equals(notificationAction.getId())) { actionIntent.setComponent(new android.content.ComponentName(context.getPackageName(), "com.purrminders.cats.PurrActionReceiver")); actionIntent.setFlags(0); }\n'
         '                PendingIntent actionPendingIntent = !"snooze".equals(notificationAction.getId()) ? PendingIntent.getBroadcast(context, localNotification.getId() + notificationAction.getId().hashCode(), actionIntent, flags) : PendingIntent.getActivity(', j, 1)
-    if not nl: sys.exit('could not patch notification buttons in ' + ln)
+    if not nl:
+        for i, line in enumerate(j.splitlines()):
+            if 'PendingIntent' in line or 'action' in line.lower(): print(i, line)
+        sys.exit('could not patch notification buttons in ' + ln)
     open(ln, 'w').write(j)
 res = 'android/app/src/main/res'
 for d in os.listdir('android-res'):

@@ -34,7 +34,7 @@ input[type=range]{accent-color:var(--accent);width:100%}
 #qadd,.wide{font:inherit;font-weight:600;background:var(--accent);color:#2a1f2d;border:2.5px solid #2a1f2d;border-radius:10px;padding:8px 14px;cursor:pointer}
 .wide{width:100%;margin-top:8px}.ghost{font:inherit;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px;margin-top:8px;width:100%;cursor:pointer}
 #qprev{display:none;margin-bottom:8px}#qprev.open{display:block}
-.chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.chip .cj{display:flex;flex-direction:column;line-height:1.1;text-align:left}.chip .cj small{font-size:11px;opacity:.75}.qhint{font-size:13px;opacity:.75;margin:2px 2px 0}.chip{font:inherit;font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:999px;padding:4px 9px;cursor:pointer}
+.chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.chips.cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.chips.cats .chip{min-width:0;padding:3px 7px}.chips.cats .cj{min-width:0}.chips.cats .cj b{overflow:hidden;text-overflow:ellipsis}.chips.cats .cj small{white-space:normal}.chip .cj{display:flex;flex-direction:column;line-height:1.1;text-align:left}.chip .cj small{font-size:11px;opacity:.75}.qhint{font-size:13px;opacity:.75;margin:2px 2px 0}.chip{font:inherit;font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:999px;padding:4px 9px;cursor:pointer}
 .chip.on{background:var(--accent);color:#2a1f2d;border-color:#2a1f2d}.pv{margin:6px 2px;font-size:15px}.pv small{display:block;opacity:.75}.pv em{display:block;font-size:13px;color:#d9534f}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;margin-right:4px}
 .two{display:flex;gap:8px}.two>*{flex:1}[hidden]{display:none!important}
@@ -1454,7 +1454,7 @@ function draftSummary(d){const x=[];if(d.kind==='idea')x.push('into the jar, no 
 /* which cat looks after what: shown above the typing bar while you type; the cat who'll take it lights up */
 const CHIPJOB={ginger:'habits',mochi:'bills',patches:'expiry dates',pepper:'reminders',sesame:'people & dates',jar:'anything else'};
 const CHIPEX={ginger:'vitamins every morning',mochi:'rent 1200 on the 1st every month',patches:'passport expires 12 May 2030',pepper:'call the bank tomorrow 10am',sesame:'dentist Friday 3pm',jar:'idea: weekend trip to Penang'};
-const catChips=on=>'<div class="chips">'+Object.keys(CATNAME).map(k=>'<button class="chip'+(k===on?' on':'')+'" data-c="'+k+'"><span class="dot" style="background:'+DOT[k]+'"></span><span class="cj"><b>'+CATNAME[k]+'</b><small>'+CHIPJOB[k]+'</small></span></button>').join('')+'</div>';
+const catChips=on=>'<div class="chips cats">'+Object.keys(CATNAME).map(k=>'<button class="chip'+(k===on?' on':'')+'" data-c="'+k+'"><span class="dot" style="background:'+DOT[k]+'"></span><span class="cj"><b>'+CATNAME[k]+'</b><small>'+CHIPJOB[k]+'</small></span></button>').join('')+'</div>';
 let qHint=false;
 function renderDraft(){const box=$('qprev');if(!draft){
     if(qHint&&!$('q').value.trim()&&!sheetMode){box.innerHTML=catChips(null)+'<p class="qhint">Tap a cat to see an example, or just type – the right cat lights up.</p>';box.classList.add('open');
