@@ -310,12 +310,13 @@ const SPOTS={
   meet:[P(-.6,-.85,'TN',.12,0),P(1.0,-.85,'TN',.12,0),P(-.6,1.65,'TS',.12,Math.PI),P(1.0,1.65,'TS',.12,Math.PI),P(2.25,.4,'HEM',.12,-Math.PI/2)],
   stretch:[P(-2.7,2.8,'HWS'),P(-1.7,2.85,'RS'),P(1.3,2.85,'RS'),P(2.4,2.7,'RS'),P(-.2,2.95,'RS')],
   play:[P(5.1,2.2,'LG'),P(5.1,3.0,'LG'),P(5.6,3.3,'LG'),P(6.0,2.1,'LG'),P(5.0,2.6,'LG')],
-  sleep:[P(5.2,1.3,'LG',.13),P(4.9,4.5,'LG',.13),P(6.45,2.2,'LG',.44),P(6.45,3.4,'LG',.44),P(6.3,5.3,'LG',.3)],
+  /* Ginger and Mochi curl up together on the lounge sofa */
+  sleep:[P(6.45,2.5,'LG',.44),P(6.45,3.1,'LG',.44),P(5.2,1.3,'LG',.13),P(4.9,4.5,'LG',.13),P(6.3,5.3,'LG',.3)],
   ceoNap:[P(-6.95,-5.45,'CG',.44,0),P(-6.25,-5.45,'CG',.44,0)],
   file:P(6.35,-1.3,'MR',0,Math.PI/2),mail:P(6.35,-2.3,'MR',0,Math.PI/2),
   eat:[P(3.2,-4.3,'BR',0,Math.PI),P(3.9,-4.3,'BR',0,Math.PI),P(4.6,-4.3,'BR',0,Math.PI),P(5.3,-4.3,'BR',0,Math.PI),P(4.2,-3.55,'BR',0,Math.PI)],
   present:P(-2.0,-.35,'TN',0,Math.PI/2+.5),
-  chill:[P(5.2,1.3,'LG',.13),P(4.9,4.5,'LG',.13),P(6.45,2.2,'LG',.44),P(6.45,3.4,'LG',.44),P(6.3,5.3,'LG',.3)]
+  chill:[P(6.45,2.5,'LG',.44),P(6.45,3.1,'LG',.44),P(5.2,1.3,'LG',.13),P(4.9,4.5,'LG',.13),P(6.3,5.3,'LG',.3)]
 };
 SPOTS.present.via=[[-1.9,-1.6]];SPOTS.ceoNap.forEach(p=>{p.via=[[-2.2,-3.45],[-2.2,-4.95],[-5.45,-4.85],[p.x,-4.8]];p.room='ceo'});
 return{build,SPOTS,NODES,EDGES};
@@ -708,6 +709,12 @@ function heart(){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:hTex,tra
   const p=new THREE.Vector3();head.getWorldPosition(p);s.position.set(p.x+(Math.random()-.5)*.6,p.y+.3,p.z+.2);
   s.scale.setScalar(.22);S.add(s);hearts.push({s,t:0})}
 
+/* Ginger and Mochi are a couple */
+const COUPLE={ginger:'mochi',mochi:'ginger'};
+function coupleOf(C){const id=COUPLE[C.id];return id?cats.find(o=>o.id===id):null}
+function popAt(tex,x,y,z,sc){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));s.position.set(x,y,z);s.scale.setScalar(sc||.24);S.add(s);hearts.push({s,t:0})}
+let exTex=null;function exclaim(C){exTex=exTex||spriteTex('!','#ffd166','bold 58px sans-serif');const p=C.g.position;popAt(exTex,p.x,p.y+1.25,p.z,.3)}
+function loveHeart(A,B){const a=A.g.position,b=B.g.position;popAt(hTex,(a.x+b.x)/2,Math.max(a.y,b.y)+1.0,(a.z+b.z)/2,.3)}
 /* behaviour */
 function spriteTex(ch,fill,font){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');
   x.font=font||'56px sans-serif';x.textAlign='center';x.fillStyle=fill;x.strokeStyle='#2a1f2d';x.lineWidth=4;
@@ -815,7 +822,7 @@ function tickCat(C,dt,t){
       const dur=C.act==='groom'?3.4:2.4,a=C.act?(t-C.actT)/dur:0,s=bell(a,0,1);
       if(C.act&&a>1){C.act=null;C.nextAct=t+4+Math.random()*6}
       const la=lookAngle(C);
-      if(!C.act&&C.stn.room==='ceo'&&!petting&&!party&&Math.random()<dt*.05){const mate=cats.find(o=>o!==C&&o.stn.room==='ceo');if(mate&&mate.st==='home'){C.act='chat';C.actT=t;C.mate=mate}}
+      if(!C.act&&C.stn.room==='ceo'&&!petting&&!party&&Math.random()<dt*(coupleOf(C)?.1:.05)){const mate=cats.find(o=>o!==C&&o.stn.room==='ceo');if(mate&&mate.st==='home'){C.act='chat';C.actT=t;C.mate=mate;if(coupleOf(C)===mate&&Math.random()<.35)setTimeout(()=>loveHeart(C,mate),900)}}
       if(C.act==='chat'&&C.mate){const m=C.mate;hY=clamp(wrap(Math.atan2(m.g.position.x-g.position.x,m.g.position.z-g.position.z)-g.rotation.y),-1.2,1.2)*s;perk=s;if(s>.3)mouth=(t*3)%1<.5?'open':'smile';if(s>.8)eyeMode='happy'}
       if(C.act==='look'){hY=la*s;perk=s;hX=-.05*s}
       if(C.act==='tilt'){hY=la*s;hZ=.32*s*Math.sin(Math.min(1,a*3)*Math.PI*.5);perk=s}
@@ -852,6 +859,7 @@ function tickCat(C,dt,t){
     if(k>2.8){const a=C.after;C.after=null;if(a==='home')goHome(C);else route(C,spotFor(C,a),a)}
   }else if(C.st==='sleep'||C.st==='nap'||C.st==='sofa'){
     keepY=true;lie=1;sit=0;if(C.st==='sofa'&&C.stT>12){C.st='wake';C.stT=0;C.after='home'}eyeMode=petting?'happy':'sleep';tailBend=3.2;amp=.08+(Math.sin(t*.37+C.seed)>.95?.3:0);tsp=3;face=.6+C.seed;
+    {const m=coupleOf(C);if(m&&m.st===C.st&&Math.hypot(m.g.position.x-g.position.x,m.g.position.z-g.position.z)<1.2)face=Math.atan2(m.g.position.x-g.position.x,m.g.position.z-g.position.z)+.5}
     if(!petting&&Math.random()<dt*.6)burst(C,zTex,1,.15);
   }else if(C.st==='sip'){
     const k=C.stT;let mug=null;
@@ -876,21 +884,58 @@ function tickCat(C,dt,t){
     else{hY=Math.sin(t*.4+C.seed)*.5}if(k>22)goHome(C)}
   else if(C.st==='visit'){face=C.tFace;const k=C.stT;perk=1;mouth=(t*2.4)%1<.5?'open':'smile';if(k<1.6){fp[1]=[.38+Math.sin(t*11)*.05,.74,.56]}eyeMode=(k%3)>2.2?'happy':'open';if(k>5.5)goHome(C)}
   else if(C.st==='pr'){
-    C.at=PRSPOT;sit=0;const i=cats.indexOf(C);let T=null,near=.5,vacDone=false;C.ball=null;
-    if(!playMode&&vacRunning()){vacDone=true;const vp=VAC.pos;
+    C.at=PRSPOT;sit=0;const i=cats.indexOf(C);let T=null,near=.5,vacDone=false,watch=null;C.ball=null;C.free=false;
+    const mate=coupleOf(C),inPR=cats.filter(o=>o.st==='pr'),k_=inPR.indexOf(C),n_=inPR.length;
+    /* walk to (x,z) inside the playroom; returns true once there */
+    const go=(x,z,nr,sp)=>{x=clamp(x,PB[0]+.2,PB[2]-.2);z=clamp(z,PB[1]+.15,PB[3]-.1);const dx=x-g.position.x,dz=z-g.position.z,L=Math.hypot(dx,dz)||1e-3;
+      if(L<=nr)return true;moving=true;const v=Math.min(sp||1.3,.4+L);g.position.x+=dx/L*v*dt;g.position.z+=dz/L*v*dt;C.speed=v/.9;face=Math.atan2(dx,dz);return false};
+    const lookAt=(x,z)=>{face=Math.atan2(x-g.position.x,z-g.position.z)};
+    /* each cat's own corner of the playroom (Ginger and Mochi side by side) */
+    const corner=PRCORNER[C.id];
+    const idle=()=>{const k=(t+C.seed*3)%12;if(k<4){sit=1;perk=.4;hY=Math.sin(t*.6+C.seed)*.5}else if(k<6.5){C.prRoll=Math.sin(t*5)*.18;sit=.3;eyeMode='happy';tailBend=2.4;amp=.4;tsp=6}else if(k<9){bow=bell((k-6.5)/2.5,0,1);stretch=bow*.6;eyeMode=bow>.3?'happy':'open'}else{sit=1;fp[0]=[-.07,.62+(Math.sin(t*9)*.5+.5)*.03,.68];hX=.2;hZ=.22;eyeMode='happy'}};
+    if(!playMode&&vacRunning()){vacDone=true;const vp=VAC.pos,dv=Math.hypot(vp.x-g.position.x,vp.z-g.position.z);
       if(C.ride){keepY=true;g.position.set(vp.x,.13,vp.z);face=VAC.head;sit=1;eyeMode='happy';tailBend=2.2;amp=.3;tsp=4;if(t>C.ride){C.ride=null;VAC.rider=null;g.position.x+=Math.cos(VAC.head)*.55;g.position.z-=Math.sin(VAC.head)*.55}}
-      else if(C.id==='mochi'){const dx=g.position.x-vp.x,dz=g.position.z-vp.z,L=Math.hypot(dx,dz)||1e-3;
-        if(L<1.5){moving=true;g.position.x+=dx/L*dt*1.1;g.position.z+=dz/L*dt*1.1;face=Math.atan2(dx,dz);sweat=true;mouth='worry'}else{face=Math.atan2(-dx,-dz);sit=1;perk=.6}}
-      else{const ang=VAC.head+Math.PI+(i-2)*.5,tx=vp.x+Math.sin(ang)*.75,tz=vp.z+Math.cos(ang)*.75,dx=tx-g.position.x,dz=tz-g.position.z,L=Math.hypot(dx,dz)||1e-3;
-        face=Math.atan2(vp.x-g.position.x,vp.z-g.position.z);perk=1;tailBend=1.4;amp=.4;tsp=6;
-        if(L>.15){moving=true;const sp=Math.min(1.5,.4+L);g.position.x+=dx/L*sp*dt;g.position.z+=dz/L*sp*dt;C.speed=sp/.9}else sit=.3;
-        const dv=Math.hypot(vp.x-g.position.x,vp.z-g.position.z);if(dv<.85&&((t+i*1.3)%3)<.4)fp[1]=[.15,.3,.6];
-        if(!VAC.rider&&dv<.9&&Math.random()<dt*.06){VAC.rider=C;C.ride=t+6+Math.random()*4;say(CATNAME[C.id]+' hopped on the vacuum!')}}}
-    if(playMode==='laser'){T=toyP;near=.32}
-    else if(playMode==='wand'){T=toyP;near=.62}
+      else if(C.id==='mochi'){
+        /* Mochi is scared of the vacuum: puffs up, runs for a high spot, peeks at it, and now and then dares to bop it */
+        C.free=true;const M=C.vm||(C.vm={s:'flee',bop:t+14+Math.random()*14,ex:0,p:null,st:t});
+        const farP=()=>PERCH.reduce((b,p)=>Math.hypot(p.x-vp.x,p.z-vp.z)>Math.hypot(b.x-vp.x,b.z-vp.z)?p:b,PERCH[0]);
+        if(M.s==='flee'){if(!M.p)M.p=farP();if(t>M.ex&&dv<2){exclaim(C);M.ex=t+5}
+          const dx=M.p.x-g.position.x,dz=M.p.z-g.position.z,L=Math.hypot(dx,dz)||1e-3;sweat=true;mouth='worry';perk=1;tailLift=.35;tailBend=1.1;amp=.5;tsp=10;
+          if(L>.06){moving=true;const v=Math.min(1.9,.6+L);g.position.x+=dx/L*Math.min(L,v*dt);g.position.z+=dz/L*Math.min(L,v*dt);C.speed=v/.9;face=Math.atan2(dx,dz)}
+          if(L<.7){const k=1-L/.7;g.position.y=M.p.y*sm(k)+Math.sin(k*Math.PI)*.25;keepY=true}else if(g.position.y>.01){keepY=true;g.position.y=Math.max(0,g.position.y-dt*2.2)}
+          if(L<=.06){M.s='perch';M.st=t}}
+        else if(M.s==='perch'){keepY=true;g.position.set(M.p.x,M.p.y,M.p.z);lookAt(vp.x,vp.z);sit=1;perk=.6+(dv<2.2?.4:0);
+          hX=.22+Math.sin(t*1.3+C.seed)*.1;hZ=Math.sin(t*.9)*.25;sweat=dv<2;mouth=dv<2?'worry':'smile';tailBend=dv<2?1.1:1.9;
+          if(Math.hypot(M.p.x-vp.x,M.p.z-vp.z)<1.1&&t-M.st>3){M.s='flee';M.p=null;exclaim(C);M.ex=t+5}
+          else if(t>M.bop&&dv<3.2&&dv>1){M.s='bop';say('Mochi is feeling brave…')}}
+        else{/* the brave bop */ if(g.position.y>.01){keepY=true;g.position.y=Math.max(0,g.position.y-dt*2.4)}
+          const dx=vp.x-g.position.x,dz=vp.z-g.position.z,L=Math.hypot(dx,dz)||1e-3;face=Math.atan2(dx,dz);perk=1;bow=.35;tailLift=.2;
+          if(L>.6){moving=true;const v=1.2;g.position.x+=dx/L*v*dt;g.position.z+=dz/L*v*dt;C.speed=v/.9}
+          else{fp[1]=[.16,.32,.62];eyeMode='happy';M.s='flee';M.p=null;M.bop=t+22+Math.random()*22;M.ex=t+.6;exclaim(C);say('Mochi bopped the vacuum! 🐾')}}}
+      else if(C.id==='ginger'&&mate&&mate.st==='pr'){
+        /* Ginger stands between Mochi and the vacuum */
+        const m=mate.g.position,ux=vp.x-m.x,uz=vp.z-m.z,uL=Math.hypot(ux,uz)||1e-3;
+        if(go(m.x+ux/uL*.8,m.z+uz/uL*.8,.12,1.7))lookAt(vp.x,vp.z);else if(dv<2.5)lookAt(vp.x,vp.z);
+        perk=1;tailLift=.35;tailBend=1.0;amp=.5;tsp=8;sit=.4;if(dv<1.3){mouth='open';hX=-.12;if(t>(C.hissT||0)){C.hissT=t+30;say('Ginger hisses at the vacuum to protect Mochi!')}}}
+      else{
+        /* the others take turns: chase the vacuum for a while, then do their own thing in their corner */
+        if(!C.role||t>C.roleT){C.role=Math.random()<(C.id==='sesame'?.3:.6)?'chase':'corner';C.roleT=t+8+Math.random()*7}
+        if(C.role==='chase'){const slot={patches:-1,pepper:1,sesame:0}[C.id]||0,ang=VAC.head+Math.PI+slot*1.0;
+          go(vp.x+Math.sin(ang)*1.05,vp.z+Math.cos(ang)*1.05,.15,1.5);if(!moving)sit=.3;lookAt(vp.x,vp.z);perk=1;tailBend=1.4;amp=.4;tsp=6;
+          if(dv<1.15&&((t+i*1.3)%3)<.4)fp[1]=[.15,.3,.6];
+          if(!VAC.rider&&dv<1.1&&Math.random()<dt*.05){VAC.rider=C;C.ride=t+6+Math.random()*4;say(CATNAME[C.id]+' hopped on the vacuum!')}}
+        else if(go(corner[0],corner[1],.12,1.1))idle();else perk=.4}}
+    else if(C.vm){/* the vacuum went home: climb down and come back to her corner */C.free=true;vacDone=true;if(g.position.y>.01){keepY=true;g.position.y=Math.max(0,g.position.y-dt*2)}if(go(corner[0],corner[1],.15,1.2)&&g.position.y<.02)C.vm=null}
+    if(playMode==='laser'){
+      /* take turns: one chases the dot, the rest crouch in a loose ring and watch */
+      if(!PTURN.id||t>PTURN.until||!inPR.some(o=>o.id===PTURN.id)){const ids=inPR.map(o=>o.id),j=ids.indexOf(PTURN.id);PTURN.id=ids[(j+1)%ids.length];PTURN.until=t+3.5+Math.random()*2.5}
+      if(PTURN.id===C.id){T=toyP;near=.32}
+      else{const a=Math.PI+(k_-(n_-1)/2)*.85;if(go(toyP.x+Math.sin(a)*1.8,toyP.z+Math.cos(a)*1.8,.15,1.2)){bow=.45;sit=.15;tailBend=1.2;amp=.3;tsp=10;C.prRoll=Math.sin(t*14)*.05}
+        lookAt(toyP.x,toyP.z);perk=1;watch=1}}
+    else if(playMode==='wand'){const a=Math.PI+(k_-(n_-1)/2)*1.0;T=new THREE.Vector3(toyP.x+Math.sin(a)*.85,0,toyP.z+Math.cos(a)*.85);near=.12}
     else if(playMode==='ball'&&balls.length){let best=balls[0],bd=1e9;for(const b of balls){const d=b.m.position.distanceTo(g.position);if(d<bd){bd=d;best=b}}
       let ch=null,cd=1e9;for(const o of cats)if(o.st==='pr'){const d=o.g.position.distanceTo(best.m.position);if(d<cd){cd=d;ch=o}}
-      if(ch===C){T=best.m.position;near=.3;C.ball=best}else{face=faceTo(C,best.m.position.x,best.m.position.z);sit=1;perk=1;hX=-.1}}
+      if(ch===C){T=best.m.position;near=.3;C.ball=best}else{if(go(corner[0],corner[1],.12,1.1))sit=1;face=faceTo(C,best.m.position.x,best.m.position.z);perk=1;hX=-.1;watch=1}}
     if(T){const dx=T.x-g.position.x,dz=T.z-g.position.z,L=Math.hypot(dx,dz)||1e-3;face=Math.atan2(dx,dz);perk=1;tailBend=1.3;tailLift=.2;amp=.4;tsp=6;
       if(L>near&&!(C.pz>0)){moving=true;const sp=Math.min(1.7,.5+L*.8),m=Math.max(.3,C.mv||0);g.position.x+=dx/L*sp*dt*m;g.position.z+=dz/L*sp*dt*m;C.speed=sp/.9}
       else if(playMode==='laser'){C.pz=(C.pz||0)+dt;const k=C.pz;tailBend=2.4;amp=.5;tsp=12;
@@ -902,10 +947,14 @@ function tickCat(C,dt,t){
         if(feather.position.y>.85&&((t+i)%1.6)<.5){keepY=true;g.position.y=Math.sin(((t+i)%1.6)/.5*Math.PI)*.3}}
       else if(C.ball){const b=C.ball;fp[1]=[.15,.28,.55];if(b.v.length()<2&&b.m.position.y<.2){b.v.x+=Math.sin(g.rotation.y)*2.2+(Math.random()-.5);b.v.z+=Math.cos(g.rotation.y)*2.2+(Math.random()-.5);b.v.y+=1.2;C.batT=t}
         if(t-(C.batT||-9)<.6){eyeMode='happy';mouth='open'}}
-    }else if(!vacDone&&(!playMode||playMode==='ball'))sit=1;
-    if(!C.ride)for(const o of cats)if(o!==C&&o.st==='pr'&&!o.ride){const ox=g.position.x-o.g.position.x,oz=g.position.z-o.g.position.z,d=Math.hypot(ox,oz);if(d<.75&&d>1e-3){g.position.x+=ox/d*(.75-d)*.5;g.position.z+=oz/d*(.75-d)*.5}}
-    if(!C.ride){g.position.x=clamp(g.position.x,PB[0],PB[2]);g.position.z=clamp(g.position.z,PB[1],PB[3])}
-    if(!funActive()){C.ride=null;C.prOff=(C.prOff||0)+dt;if(C.prOff>2.5){C.prOff=0;C.pz=0;goHome(C)}}else C.prOff=0}
+      if(playMode==='wand')lookAt(toyP.x,toyP.z);
+    }else if(!vacDone&&!watch&&(!playMode||playMode==='ball'))sit=1;
+    if(playMode!=='laser'||PTURN.id!==C.id)C.pz=0;
+    /* personal space: cats keep about a body length apart (Ginger and Mochi are allowed closer) */
+    if(!C.ride&&g.position.y<.2)for(const o of cats)if(o!==C&&o.st==='pr'&&!o.ride&&o.g.position.y<.2){const ox=g.position.x-o.g.position.x,oz=g.position.z-o.g.position.z,d=Math.hypot(ox,oz),r=o===mate?.6:1.2;
+      if(d<r&&d>1e-3){g.position.x+=ox/d*(r-d)*.5;g.position.z+=oz/d*(r-d)*.5}}
+    if(!C.ride&&!C.free){g.position.x=clamp(g.position.x,PB[0],PB[2]);g.position.z=clamp(g.position.z,PB[1],PB[3])}
+    if(!funActive()&&!C.vm){C.ride=null;C.prOff=(C.prOff||0)+dt;if(C.prOff>2.5){C.prOff=0;C.pz=0;goHome(C)}}else C.prOff=0}
   else if(C.st==='zoom'){const k=C.stT;eyeMode='happy';mouth='open';perk=1;tailBend=2.6;amp=.45;tsp=8;if(k>2.2)goHome(C)}
   else if(C.st==='gaze'){face=Math.PI;hX=-.28;hZ=Math.sin(t*.8)*.18;perk=1;amp=.35;tsp=1;if(C.stT>5.5)goHome(C)}
   else if(C.st==='stretch'){face=camFace(C);sit=0;const k=clamp(C.stT/3.2,0,1),s=bell(k,.05,.85);bow=s;stretch=s*.6;eyeMode=s>.3?'happy':'open';
@@ -938,6 +987,11 @@ function tickCat(C,dt,t){
   if(t-(C.alertT||-9)<1.6&&!party){hY=lookAngle(C);perk=1;mouth='open';eyeMode='open'}
   if((C.st==='walk'||(C.st==='home'&&!C.act))&&!petting){let nb=null,nd2=2.6;for(const o of cats)if(o!==C){const d2=(o.g.position.x-g.position.x)**2+(o.g.position.z-g.position.z)**2;if(d2<nd2){nd2=d2;nb=o}}
     if(nb&&(C.st==='walk'||(t+C.seed)%11<2)){hY=clamp(wrap(Math.atan2(nb.g.position.x-g.position.x,nb.g.position.z-g.position.z)-g.rotation.y),-.85,.85);perk=Math.max(perk,.7)}}
+  {const m=coupleOf(C);
+    if(m&&C.id==='ginger'&&t>(C.loveT||25)){const calm=s=>['home','pr','chill','sleep','nap','sofa','eat','meet'].includes(s),d=Math.hypot(m.g.position.x-g.position.x,m.g.position.z-g.position.z);
+      if(calm(C.st)&&calm(m.st)&&d<2.4&&!(C.st==='pr'&&(playMode||vacRunning())&&C.vm)){C.loveT=t+30+Math.random()*35;C.love=m.love=t+2;loveHeart(C,m);if(Math.random()<.4)setTimeout(()=>loveHeart(C,m),500)}else C.loveT=t+6}
+    const look=t<(C.love||0)?m:(C.lookP&&t<C.lookP.until?C.lookP.C:null);
+    if(look&&!['sleep','nap','sofa','walk'].includes(C.st)){hY=clamp(wrap(Math.atan2(look.g.position.x-g.position.x,look.g.position.z-g.position.z)-g.rotation.y),-1.2,1.2);perk=1;if(t<(C.love||0)){eyeMode='happy';mouth='smile'}}}
   if(petting){eyeMode='happy';hY=lookAngle(C);hZ=.3;perk=0;mouth='smile';amp=.12;tsp=9;sq=.03+Math.sin(t*38)*.006}
   let roll=C.prRoll||0;
   if(party){if(!C.wasParty)C.rot0=g.rotation.y;const p=pt/1.9;eyeMode='happy';mouth='open';perk=1;lie=0;sit=.25;tailBend=2.4;amp=.4;tsp=8;
@@ -1579,10 +1633,15 @@ function healthFx(dt,t){for(const c in HEALTH.objs)for(const d of HEALTH.objs[c]
 /* ---------- Sesame's morning briefing ---------- */
 const BRIEF={on:false,list:[],i:0,playing:false,timer:null,cur:null,idea:null,readOnly:false};
 const pickV=(arr,seed)=>arr[Math.abs(seed)%arr.length];
+/* today's things in clock order (with phone-calendar events), things with no time, late things, and the next few days by date */
+function dayTimeline(now){const E_=entries(now).filter(e=>e.t.kind!=='idea'),od=E_.filter(e=>e.group==='attention'),
+    up=E_.filter(e=>e.group==='soon').sort((a,b)=>a.at-b.at),cal=typeof calOn==='function'?calOn(now).filter(e=>e.allDay||e.end>now):[],
+    t0=day0(now),all=E_.filter(e=>e.group==='today').map(e=>{const at=e.step?(e.step.at?new Date(e.step.at):null):(effTime(e.t)?e.at:null);return{e,at:at&&at>=t0?at:null}}).concat(cal.map(c=>({cal:c,at:c.allDay?null:c.start})));
+  return{od,up,cal,timed:all.filter(x=>x.at).sort((a,b)=>a.at-b.at),anytime:all.filter(x=>!x.at)}}
 function briefingScript(now){now=now||new Date();const seed=+dkey(now).replace(/-/g,''),out=[],say_=(text,cat,extra)=>out.push(Object.assign({text,cat:cat||'sesame'},extra||{}));
   const hr=now.getHours(),E_=entries(now).filter(e=>e.t.kind!=='idea');
   say_(pickV(hr<12?['Good morning! Here\u2019s your day.','Morning! Let\u2019s see what\u2019s on.','Rise and shine! Here\u2019s the plan.']:hr<18?['Good afternoon! Here\u2019s what\u2019s on.','Hi there! Quick look at your day.']:['Good evening! Here\u2019s a quick catch-up.','Hello! Let\u2019s catch up on your day.'],seed));
-  const line=e=>{const t=e.t,nm=t.title||t.name,amt=t.amount?' ('+money(t.amount)+')':'';
+  const line=(e,noTime)=>{const t=e.t,nm=t.title||t.name,amt=t.amount?' ('+money(t.amount)+')':'';
     if(e.step)return e.step.label+'.';
     if(e.state==='overdue'||e.state==='expired'){if(t.kind==='bill')return nm+amt+' still needs paying \u2013 it was due '+fmtDay(e.at,now)+'.';if(t.kind==='expiry')return nm+' has expired.';return '\u201c'+nm+'\u201d was due '+fmtDay(e.at,now)+'.'}
     if(t.kind==='habit')return nm+(HB.target(t)>1?', '+HB.target(t)+' times today':'')+'.';
@@ -1590,12 +1649,15 @@ function briefingScript(now){now=now||new Date();const seed=+dkey(now).replace(/
     if(t.kind==='expiry')return nm+' expires '+fmtDay(e.at,now)+'.';
     if(t.kind==='person')return e.state==='nudge'?'It\u2019s been '+PP.info(t,now).since+' days since you talked to '+nm+'.':/Anniversary/.test(e.text)?nm+'\u2019s anniversary is '+fmtDay(e.at,now)+'.':
       (PP.info(t,now).bdd===0?'It\u2019s '+nm+'\u2019s birthday today'+(t.year?', turning '+(e.at.getFullYear()-t.year):'')+'! Don\u2019t forget your wishes.':nm+'\u2019s birthday is '+fmtDay(e.at,now)+(t.year?', turning '+(e.at.getFullYear()-t.year):'')+'.'+((t.gifts||[]).length?' Maybe '+t.gifts[0]+'?':''));
-    const tm=t.window?' '+WIN_LBL[t.window]:effTime(t)?' at '+fmtTime(effTime(t)):'';return nm+(daysBetween(now,e.at)===0?tm:' '+fmtDay(e.at,now)+tm)+'.'};
-  const od=E_.filter(e=>e.group==='attention'),td=E_.filter(e=>e.group==='today'),up=E_.filter(e=>e.group==='soon');
-  if(od.length){say_(od.length===1?'One thing needs attention.':pickV(['First, a few things need attention.','Before anything else, these slipped.','Quick catch-up on things that are late.'],seed),'pepper');od.slice(0,5).forEach(e=>say_(line(e),e.cat));if(od.length>5)say_('And '+(od.length-5)+' more in your agenda.','pepper')}
-  if(td.length){say_(pickV(['Here\u2019s today.','On today\u2019s list:','Today you\u2019ve got:'],seed+1));td.slice(0,8).forEach(e=>say_(line(e),e.cat));if(td.length>8)say_('Plus '+(td.length-8)+' more today.')}
-  const cev=typeof calOn==='function'?calOn(now).filter(e=>e.allDay||e.end>now):[];
-  if(cev.length){say_(cev.length===1?'From your calendar today:':'From your calendar today, '+cev.length+' things:');cev.slice(0,5).forEach(e=>say_(e.title+(e.allDay?'.':' at '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()))+'.'),'sesame',{cal:true}));if(cev.length>5)say_('And '+(cev.length-5)+' more in your calendar.')}
+    const tm=t.window?' '+WIN_LBL[t.window]:effTime(t)?' at '+fmtTime(effTime(t)):'';return nm+(daysBetween(now,e.at)===0?(noTime?'':tm):' '+fmtDay(e.at,now)+tm)+'.'};
+  /* in the order your day happens: late things first (one short catch-up), then today by the clock (calendar events mixed in), then anytime-today, then the next few days by date */
+  const D=dayTimeline(now),od=D.od,up=D.up,td=D.timed.concat(D.anytime),cev=D.cal;
+  const tline=x=>x.cal?x.cal.title+' (from your calendar).':x.e.step?x.e.step.label+'.':line(x.e,true);
+  if(od.length){say_(od.length===1?'First, one thing is late.':'First, '+od.length+' things are late.','pepper');od.slice(0,5).forEach(e=>say_(line(e),e.cat));if(od.length>5)say_('And '+(od.length-5)+' more in your agenda.','pepper')}
+  if(D.timed.length){say_(pickV(['Here’s your day, in order.','Today, in order:','Here’s how today goes.'],seed+1));
+    D.timed.slice(0,10).forEach(x=>say_(fmtTime(pad(x.at.getHours())+':'+pad(x.at.getMinutes()))+': '+tline(x),x.cal?'sesame':x.e.cat,x.cal?{cal:true}:undefined));if(D.timed.length>10)say_('Plus '+(D.timed.length-10)+' more later today.')}
+  if(D.anytime.length){say_(D.timed.length?'And anytime today:':pickV(['Here’s today.','On today’s list:','Today you’ve got:'],seed+1));
+    D.anytime.slice(0,6).forEach(x=>say_(tline(x),x.cal?'sesame':x.e.cat,x.cal?{cal:true}:undefined));if(D.anytime.length>6)say_('Plus '+(D.anytime.length-6)+' more today.')}
   if(up.length){say_(pickV(['Coming up:','Later this week:','Looking ahead:'],seed+2));up.slice(0,6).forEach(e=>say_(line(e),e.cat));if(up.length>6)say_('And '+(up.length-6)+' more in the next few days.')}
   if(!od.length&&!td.length&&!up.length&&!cev.length)say_(pickV(['Nothing on today. Enjoy the quiet!','A clear day! Treat yourself.','Nothing scheduled \u2013 the office is all yours.'],seed));
   const shown=Math.min(od.length,5)+Math.min(td.length,8)+Math.min(up.length,6),idea=shown<=10?ideaDue(now):null;if(idea)say_('From your ideas jar: '+idea.title+'. Want to make it happen?','sesame',{idea:idea.id});
@@ -1791,10 +1853,14 @@ cv.addEventListener('wheel',e=>{e.preventDefault();zoom=clampZ(zoom*(1+e.deltaY*
 const ray=new THREE.Raycaster(),pt=new THREE.Vector2();
 function tapAt(x,y){pt.set(x/innerWidth*2-1,-(y/innerHeight)*2+1);ray.setFromCamera(pt,cam);
   const hit=ray.intersectObjects(cats.map(C=>C.g),true)[0];if(!hit){if(playMode==='ball'){const p=floorAt(x,y);if(p)throwBall(p.clone())}return}let o=hit.object;while(o&&!o.userData.C)o=o.parent;if(!o)return;
-  const C=o.userData.C,t=clock.getElapsedTime();
+  const C=o.userData.C,t=clock.getElapsedTime();{const m=coupleOf(C);if(m)m.lookP={C,until:t+2.4}}
   if(t-C.lastTap<.45){C.petT=t;say('Purr~ '+C.coat.name+' is '+(STATUS[C.st==='walk'?C.tAct:C.st]?(C.st==='walk'?'heading off ':'')+STATUS[C.st==='walk'?C.tAct:C.st]:'busy')+'.')}
   else openCat(C.id);C.lastTap=t}
 /* ---- playroom: laser pointer, feather wand, toss a ball ---- */
+/* playroom: each cat's own corner, the high spots Mochi escapes to, and whose turn it is with the laser */
+const PRCORNER={ginger:[4.3,7.7],mochi:[4.85,8.05],patches:[-4.8,7.6],pepper:[-1.3,7.8],sesame:[1.7,8.2]};
+const PERCH=[{x:5.85,z:9.8,y:.6},{x:5.0,z:9.8,y:1.3},{x:1.3,z:9.55,y:.6},{x:-2.4,z:9.6,y:.6}];
+const PTURN={id:null,until:0};
 let playMode=null;const PB=OFFICE_O.play.bounds,toyP=new THREE.Vector3(1,0,7.8),toyPrev=toyP.clone();let toySpeed=0;
 const PRSPOT={x:2.6,z:7.0,node:'PR',y:0};
 const floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),hitP=new THREE.Vector3();
@@ -2122,9 +2188,10 @@ const NV_DAYS=7,NV_MAX=200,NV_CATS=['ginger','mochi','patches','pepper','sesame'
 function nvChan(cat){return SET().meow===false||!NV_CATS.includes(cat)?'alerts':'meow_'+cat}
 /* the morning briefing notification: when, and what it says */
 function briefTime(d){const s=SET(),wk=d.getDay()===0||d.getDay()===6;if(s.briefPush===false)return null;if(wk&&s.briefWkd==='off')return null;return wk&&s.briefWkd==='custom'&&s.briefWkdAt?s.briefWkdAt:(s.briefAt||'08:00')}
-function briefNote(at){const now=new Date(at),E_=entries(now).filter(e=>e.t.kind!=='idea'),od=E_.filter(e=>e.group==='attention'),td=E_.filter(e=>e.group==='today'),
-    cev=typeof calOn==='function'?calOn(now).filter(e=>e.allDay||e.end>now):[],nm=e=>{const t=e.t,x=t.title||t.name,tm=!e.step&&effTime(t)&&daysBetween(now,e.at)===0?' '+fmtTime(effTime(t)):'';return(e.step?e.step.label:x)+(t.amount&&t.kind==='bill'?' ('+money(t.amount)+')':'')+tm},
-    lines=[...od.slice(0,3).map(e=>'⚠️ '+nm(e)),...td.slice(0,6).map(nm),...cev.slice(0,3).map(e=>'📅 '+e.title+(e.allDay?'':' '+fmtTime(pad(e.start.getHours())+':'+pad(e.start.getMinutes()))))],n=od.length+td.length+cev.length;
+function briefNote(at){const now=new Date(at),D=dayTimeline(now),od=D.od,hm=d=>fmtTime(pad(d.getHours())+':'+pad(d.getMinutes())),
+    nm=e=>{const t=e.t;return(e.step?e.step.label:t.title||t.name)+(t.amount&&t.kind==='bill'&&!e.step?' ('+money(t.amount)+')':'')},
+    one=x=>x.cal?'📅 '+x.cal.title:nm(x.e),
+    lines=[...od.slice(0,3).map(e=>'⚠️ '+nm(e)),...D.timed.slice(0,8).map(x=>hm(x.at)+' '+one(x)),...D.anytime.slice(0,4).map(one)],n=od.length+D.timed.length+D.anytime.length;
   return{title:'☀️ Sesame: Good morning!'+(n?' '+n+' thing'+(n===1?'':'s')+' today':''),body:n?lines.slice(0,3).join(' · ')+(n>3?' …':''):'Nothing on today. Tap to hear your briefing.',
     large:n?lines.join('\n')+(n>lines.length?'\n…and '+(n-lines.length)+' more':'')+'\n\nTap to hear the full briefing.':'A clear day! Tap to hear your briefing.'}}/* Android allows up to 500 alarms per app */
 function nvHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>1)%2000000000+1}
