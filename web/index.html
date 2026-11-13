@@ -37,7 +37,7 @@ input[type=range]{accent-color:var(--accent);width:100%}
 .chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.chips.cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}.chips.cats .chip{min-width:0;padding:3px 7px}.chips.cats .cj{min-width:0}.chips.cats .cj b{overflow:hidden;text-overflow:ellipsis}.chips.cats .cj small{white-space:normal}.chip .cj{display:flex;flex-direction:column;line-height:1.1;text-align:left}.chip .cj small{font-size:11px;opacity:.75}.qhint{font-size:13px;opacity:.75;margin:2px 2px 0}.chip{font:inherit;font-size:13px;display:flex;align-items:center;gap:4px;white-space:nowrap;background:transparent;color:var(--ink);border:2px solid var(--line);border-radius:999px;padding:4px 9px;cursor:pointer}
 .chip.on{background:var(--accent);color:#2a1f2d;border-color:#2a1f2d}.pv{margin:6px 2px;font-size:15px}.pv small{display:block;opacity:.75}.pv em{display:block;font-size:13px;color:#d9534f}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;margin-right:4px}
-.two{display:flex;gap:8px}.two>*{flex:1}[hidden]{display:none!important}
+.two{display:flex;gap:8px}.two>*{flex:1}.two>*{min-width:0}.two input,.two select{width:100%;box-sizing:border-box;min-width:0}#rnl{flex:0 0 32%}.rep{border:1px solid rgba(120,100,90,.18);border-radius:12px;padding:6px 10px 8px;margin:8px 0;min-width:0}.rep legend{font-size:13px;opacity:.75;padding:0 4px}.rep .fine{margin:4px 0 0}[hidden]{display:none!important}
 #sheet{position:fixed;left:10px;right:10px;bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 10px + var(--kb,0px));max-height:62%;overflow-y:auto;padding:14px 14px 16px;display:none;z-index:5}
 #sheet.open{display:block}#sheet h2{margin:0 30px 8px 0;font-size:20px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}#sheet h2 small{font-size:13px;font-weight:400;opacity:.7}
 #sheet h3{margin:12px 0 4px;font-size:14px;opacity:.75}#sheet .x{position:absolute;right:10px;top:8px;font-size:22px;background:none;border:0;color:var(--ink);cursor:pointer}
@@ -709,6 +709,10 @@ function heart(){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:hTex,tra
   const p=new THREE.Vector3();head.getWorldPosition(p);s.position.set(p.x+(Math.random()-.5)*.6,p.y+.3,p.z+.2);
   s.scale.setScalar(.22);S.add(s);hearts.push({s,t:0})}
 
+/* bodies: walking cats never end up inside another cat (cats sitting at their own spot stay put) */
+function sepCats(){for(let i=0;i<cats.length;i++)for(let j=i+1;j<cats.length;j++){const A=cats[i],B=cats[j];if(A.ride||B.ride)continue;
+  const a=A.g.position,b=B.g.position;if(Math.abs(a.y-b.y)>.35)continue;const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz),r=coupleOf(A)===B?.42:.58;if(d>=r||d<1e-4)continue;
+  const wa=A.st==='walk'?1:0,wb=B.st==='walk'?1:0;if(!wa&&!wb)continue;const s=(r-d)/(wa+wb);if(wa){a.x-=dx/d*s;a.z-=dz/d*s}if(wb){b.x+=dx/d*s;b.z+=dz/d*s}}}
 /* Ginger and Mochi are a couple */
 const COUPLE={ginger:'mochi',mochi:'ginger'};
 function coupleOf(C){const id=COUPLE[C.id];return id?cats.find(o=>o.id===id):null}
@@ -848,7 +852,18 @@ function tickCat(C,dt,t){
     sit=0;const d=tv.subVectors(C.target,g.position);d.y=0;const L=d.length(),last=C.path.length<=1;
     if(!last&&L<.12){C.path.shift();C.target=C.path[0];moving=true}
     else if(L<.03&&C.mv<.25){C.stT=0;C.st=C.tAct;C.at=C.tAct==='home'?null:C.next}
-    else{moving=L>.03;d.normalize();g.position.addScaledVector(d,Math.min(L,.9*(C.speed||1)*(C.mv||0)*(last?Math.min(1,L/.35+.25):1)*dt));face=Math.atan2(d.x,d.z)}
+    else{moving=L>.03;d.normalize();
+      /* other cats have bodies: steer round them, and when two meet head-on one waits a moment for the other */
+      let side=0,slow=1;const px=d.z,pz=-d.x,me=cats.indexOf(C);
+      if(t<(C.waitT||0)){slow=0;moving=false;sit=.5;tailBend=2;amp=.5;tsp=5}
+      else for(const o of cats){if(o===C||o.ride)continue;const ox=o.g.position.x-g.position.x,oz=o.g.position.z-g.position.z,od=Math.hypot(ox,oz);
+        if(od>1.15||od<1e-3||Math.abs(o.g.position.y-g.position.y)>.35)continue;const ahead=(ox*d.x+oz*d.z)/od;if(ahead<.2||od>L+.3)continue;
+        const lat=(ox*px+oz*pz)/od;side-=(lat>=0?1:-1)*(1.15-od)*1.7*ahead;
+        if(o.st==='walk'&&o.target&&t>=(o.waitT||0)){const qx=o.target.x-o.g.position.x,qz=o.target.z-o.g.position.z,ql=Math.hypot(qx,qz)||1;
+          if((qx*d.x+qz*d.z)/ql<-.3&&od<.95&&me>cats.indexOf(o)){C.waitT=t+.8+Math.random()*.5;slow=0;moving=false}}
+        else if(od<.85)slow=Math.min(slow,.45)}
+      side=clamp(side,-1.3,1.3)*(last?Math.min(1,L/.6):1);let mx=d.x+px*side,mz=d.z+pz*side;const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;
+      const step=Math.min(L,.9*(C.speed||1)*(C.mv||0)*(last?Math.min(1,L/.35+.25):1)*dt)*slow;g.position.x+=mx*step;g.position.z+=mz*step;if(slow>0)face=Math.atan2(mx,mz)}
     /* hop down from a raised spot at the start, hop up onto one at the end */
     const ty=C.target.y||0,fromD=Math.hypot(g.position.x-C.p0.x,g.position.z-C.p0.z);
     if(last&&ty>0&&L<.7){const k=1-L/.7;g.position.y=ty*sm(k)+Math.sin(k*Math.PI)*.22;keepY=true}
@@ -1079,6 +1094,28 @@ function parse(raw,now){
     const u=(m[3]||'weeks').toLowerCase(),n=m[2]?(m[2]==='other'?2:num(m[2])):(m[3]?1:2);touch={name:cleanName(m[1]),days:u.startsWith('fort')?14:u.startsWith('day')?n:u.startsWith('week')?n*7:n*30};s=' '}
   /* ---------- schedules ---------- */
   let habit=null,freq=null;
+  /* ---------- richer repeats, for any cat: "last Saturday of every month", "2nd Tuesday monthly", "every other Friday", "last day of each month", "until 31 Dec", "for 6 weeks" ---------- */
+  let rule=null,ruleWeak=false,ends=null;
+  {const ORDW={first:1,'1st':1,second:2,'2nd':2,third:3,'3rd':3,fourth:4,'4th':4,last:-1},ORD='(first|1st|second|2nd|third|3rd|fourth|4th|last)',
+     MCTX='(?:\\s+of\\s+(?:the\\s+|each\\s+|every\\s+)?month|\\s+(?:of\\s+)?(?:every|each)\\s+month|\\s+monthly|\\s+a\\s+month)';
+   if((m=cut(new RegExp('\\b(?:every|each)\\s+'+ORD+'\\s+'+DAY_RE+'s?\\b(?:'+MCTX+')?','i')))||(m=cut(new RegExp('\\b(?:on\\s+)?(?:the\\s+)?'+ORD+'\\s+'+DAY_RE+'s?\\b'+MCTX,'i'))))
+     rule={f:'month',n:1,m:'nth',nth:ORDW[m[1].toLowerCase()],wd:dayIdx(m[2])};
+   else if((m=cut(/\b(?:on\s+)?(?:the\s+)?last\s+(?:working|business|work)\s+day(?:\s+of\s+(?:the\s+|each\s+|every\s+)?month|\s+(?:of\s+)?(?:every|each)\s+month)?/i))){rule={f:'month',n:1,m:'lastwd'};ruleWeak=!/every|each/i.test(m[0])}
+   else if((m=cut(/\b(?:on\s+)?(?:the\s+)?last\s+day\s+of\s+(?:the\s+|each\s+|every\s+)?month\b|\b(?:at\s+the\s+)?end\s+of\s+(?:every|each)\s+month\b|\bevery\s+month[-\s]?end\b/i))){rule={f:'month',n:1,m:'last'};ruleWeak=!/every|each/i.test(m[0])}
+   else if((m=cut(new RegExp('\\bevery\\s+(?:other|second|2nd|alternate)\\s+'+DAY_RE+'\\b','i'))))rule={f:'week',n:2,days:[dayIdx(m[1])]};
+   else if((m=cut(new RegExp('\\b(?:every\\s+(other|\\d+|two|three|four)\\s+weeks?|fortnightly|every\\s+fortnight|biweekly)\\s+on\\s+'+DAY_RE+'s?\\b(?:\\s*(?:,|and|&)\\s*'+DAY_RE+'s?\\b)*','i')))){
+     const ds=[...m[0].matchAll(new RegExp(DAY_RE,'gi'))].map(x=>dayIdx(x[1]));rule={f:'week',n:m[1]?(m[1].toLowerCase()==='other'?2:num(m[1])):2,days:[...new Set(ds)]}}
+   else if((m=cut(/\b(?:fortnightly|every\s+fortnight|biweekly|every\s+other\s+week)\b/i)))rule={f:'week',n:2};
+   else if((m=cut(/\bevery\s+(\d+|two|four|five|six|seven|eight|nine|ten|twelve)\s+months\b/i)))rule={f:'month',n:num(m[1])};
+   else if((m=cut(/\bevery\s+other\s+month\b|\bbi-?monthly\b/i)))rule={f:'month',n:2};
+   else if((KW.event.test(s)||KW.bill.test(s)||KW.pepper.test(s))&&(m=s.match(new RegExp('\\b(?:every|each)\\s+'+DAY_RE+'s?\\b(?:\\s*(?:,|and|&)\\s*'+DAY_RE+'s?\\b)*','i')))){
+     const ds=[...m[0].matchAll(new RegExp(DAY_RE,'gi'))].map(x=>dayIdx(x[1]));cut(m[0]);rule={f:'week',n:1,days:[...new Set(ds)]}}
+   else if((KW.event.test(s)||KW.bill.test(s)||KW.pepper.test(s))&&(m=cut(/\b(?:every|each)\s+week\b|\bweekly\b/i)))rule={f:'week',n:1};
+   if((m=cut(/\bfor\s+(?:the\s+next\s+)?(\d+|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(times|weeks|months|days|years)\b/i)))ends={k:m[2].toLowerCase(),n:num(m[1])};
+   else if((m=cut(new RegExp('\\b(?:until|till|til)\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?'+MON_RE+'(?:,?\\s+(\\d{4}))?\\b','i'))))ends={until:new Date(m[3]?+m[3]:today.getFullYear(),monIdx(m[2]),+m[1]),y:!!m[3]};
+   else if((m=cut(new RegExp('\\b(?:until|till|til)\\s+'+MON_RE+'\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b','i'))))ends={until:new Date(m[3]?+m[3]:today.getFullYear(),monIdx(m[1]),+m[2]),y:!!m[3]};
+   else if((m=cut(new RegExp('\\b(?:until|till|til)\\s+(?:the\\s+)?end\\s+of\\s+'+MON_RE+'(?:\\s+(\\d{4}))?','i'))))ends={until:new Date(m[2]?+m[2]:today.getFullYear(),monIdx(m[1])+1,0),y:!!m[2]};
+   if(ends&&ends.until&&!ends.y&&ends.until<today)ends.until.setFullYear(ends.until.getFullYear()+1)}
   if((m=cut(/\b(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|once|twice)\s*(?:x\s*|times?\s+)?(?:a|per|each)\s+day\b/i))||(m=cut(/\b(\d+|one|two|three|four|five|six|seven|eight|ten|twelve)\s+(?:glasses|cups|bottles|times|servings|sets|rounds)\s+(?:a|per|each)\s+day\b/i)))habit={type:'timesPerDay',n:num(m[1])};
   else if((m=cut(/\b(\d+|one|two|three|four|five|six|seven|once|twice)\s*(?:x\s*|times?\s+)?(?:a|per|each)\s+week\b/i)))habit={type:'perWeek',n:num(m[1])};
   else if((m=cut(/\bevery\s+(\d+|two|three|four|five|six|seven|ten)\s+days\b/i)))habit={type:'everyN',n:num(m[1])};
@@ -1132,13 +1169,18 @@ function parse(raw,now){
   let cat,kind;
   if(isPerson){cat='sesame';kind='person'}
   else if(isExp&&!(isBill&&freq&&!/expir|renew|warranty|voucher|trial|passport|visa|licen/i.test(raw))){cat='patches';kind='expiry'}
-  else if(isBill&&!habit&&(once||!(isPep&&!freq&&!day)&&!(date&&!freq&&!day)||date&&!freq&&!day&&(amount!==null||/\b\d{2,7}(?:[.,]\d{1,2})?\b/.test(s))&&!isPep)){cat='mochi';kind='bill'}
+  else if(isBill&&!habit&&(once||rule&&!ruleWeak||rule&&!isPep||!(isPep&&!freq&&!day)&&!(date&&!freq&&!day)||date&&!freq&&!day&&(amount!==null||/\b\d{2,7}(?:[.,]\d{1,2})?\b/.test(s))&&!isPep)){cat='mochi';kind='bill'}
   else if(habit){cat='ginger';kind='habit'}
   else if(isEvent&&!(!date&&/^\s*(book|buy|call|email|send|order|plan|arrange|schedule|cancel|confirm|pick|pack|prepare)\b/i.test(raw))){cat='sesame';kind='event'}
   else{cat='pepper';kind='reminder'}
   if(kind==='bill'&&amount===null&&(m=cut(/\b(\d+[.,]\d{1,2}|\d{2,7})\s*$/)))amount=+m[1].replace(',','.');
+  if((kind==='reminder'||kind==='event')&&!rule&&freq)rule=freq==='monthly'?{f:'month',n:1}:freq==='quarterly'?{f:'month',n:3}:{f:'year',n:1};
+  if(rule&&ruleWeak&&kind!=='bill'){const d=REP.onOrAfter(rule,today,today);if(d&&!date)date=d;rule=null}
+  if(rule&&kind==='person')rule=null;
+  if(rule&&kind==='expiry')rule=null;
   /* ---------- tidy title ---------- */
   s=s.replace(/^\s*(?:please\s+)?(?:remind me to|remind me about|remind me|don'?t forget to|don'?t forget|email me about|email me to|ping me about|add|new|todo|to do|task|i want to|i need to|need to)\b[:\s]*/i,' ');
+  s=s.replace(/^\s*to\s+/i,' ');
   for(let k=0;k<3;k++)s=s.replace(/\s+(?:on|at|by|due|until|till|for|from|in|every|each|is|are|of|the|expires?|expiring|ends?|renews?|valid)\s*$/i,' ');
   s=s.replace(/^[\s:,;\-–]+/,'').replace(/[\s,;:\-–]+$/,'').replace(/\s{2,}/g,' ').trim();
   out.cat=cat;out.kind=kind;
@@ -1147,9 +1189,25 @@ function parse(raw,now){
   if(time)out.time=pad(time[0])+':'+pad(time[1]);
   if(date&&!isNaN(date))out.date=dk(date);
   if(kind==='habit'){out.title=f;out.habit=habit}
-  if(kind==='bill'&&(once||date&&!freq&&!day)){out.title=f;out.amount=amount;out.freq='once';const d=date&&!isNaN(date)?date:today;if(!date)out.notes.push('Check the date');out.date=dk(d);out.day=d.getDate();out.month=d.getMonth()+1}
+  /* repeats: settle the first date, the day/weekday it hangs on, and when it ends */
+  if(kind==='bill'&&!rule&&ends&&freq)rule=freq==='yearly'?{f:'year',n:1}:{f:'month',n:freq==='quarterly'?3:1,m:'date',day:day||(date?date.getDate():today.getDate())};
+  if(kind==='habit'&&ends&&habit&&['daily','weekdays','everyN'].includes(habit.type)){const r=habit.type==='daily'?{f:'day',n:1}:habit.type==='everyN'?{f:'day',n:habit.n}:{f:'week',n:1,days:habit.days};
+    if(ends.until)r.until=dk(ends.until);else if(ends.k==='times')r.count=ends.n;else{const u=ends.k.startsWith('day')?addDays(today,ends.n):ends.k.startsWith('week')?addDays(today,7*ends.n):new Date(today.getFullYear(),today.getMonth()+ends.n,today.getDate());r.until=dk(addDays(u,-1))}
+    out.habit=habit={type:'rule',rule:r};out.start=dk(today)}
+  let first=null;
+  if(rule&&(kind==='reminder'||kind==='event'||kind==='bill')){const a=date&&!isNaN(date)?day0(date):today;
+    if(rule.f==='week'&&!(rule.days&&rule.days.length))rule.days=[a.getDay()];
+    if(rule.f==='month'&&!rule.m){rule.m='date';rule.day=day||a.getDate()}
+    if(rule.f==='year'){rule.month=a.getMonth()+1;rule.day=a.getDate()}
+    if(ends){if(ends.until)rule.until=dk(ends.until);else if(ends.k==='times')rule.count=ends.n;else{const u=ends.k.startsWith('day')?addDays(a,ends.n):ends.k.startsWith('week')?addDays(a,7*ends.n):ends.k.startsWith('month')?new Date(a.getFullYear(),a.getMonth()+ends.n,a.getDate()):new Date(a.getFullYear()+ends.n,a.getMonth(),a.getDate());rule.until=dk(addDays(u,-1))}}
+    first=REP.onOrAfter(rule,a,a);
+    if(first&&time&&dk(first)===dk(today)&&kind!=='bill'){const tt=new Date(today);tt.setHours(time[0],time[1],0,0);if(tt<now)first=REP.after(rule,a,first)}
+    if(first){rule.start=dk(a);date=first;out.date=dk(first)}}
+  if(kind==='bill'&&rule&&first){out.title=f;out.amount=amount;out.freq='custom';out.rep=rule;out.start=rule.start;out.date=dk(first);out.day=first.getDate();out.month=first.getMonth()+1}
+  else if(kind==='bill'&&(once||date&&!freq&&!day)){out.title=f;out.amount=amount;out.freq='once';const d=date&&!isNaN(date)?date:today;if(!date)out.notes.push('Check the date');out.date=dk(d);out.day=d.getDate();out.month=d.getMonth()+1}
   else if(kind==='bill'){out.title=f;out.amount=amount;out.freq=freq||'monthly';if(!day&&!date&&out.freq!=='yearly')out.notes.push('Check the day');out.day=day||(date?date.getDate():null)||today.getDate();if(out.freq==='yearly'&&!out.month)out.month=date?date.getMonth()+1:today.getMonth()+1;if(out.freq==='yearly'&&!day&&!date){out.day=1;out.notes.push('Check the day')}if(out.freq==='quarterly')out.month=date?date.getMonth()+1:today.getMonth()+1;delete out.date}
   if(kind==='expiry'){out.title=f;out.type=(EXPTYPE.find(([re])=>re.test(raw))||[0,'other'])[1];if(!out.date)out.notes.push('Add the expiry date')}
+  if((kind==='reminder'||kind==='event')&&rule&&first)out.rep=rule;
   if(kind==='reminder'){out.title=f;if(!out.date&&out.time){const t=new Date(now);const[h,mi]=out.time.split(':').map(Number);t.setHours(h,mi,0,0);out.date=dk(t<now?addDays(today,1):today)}if(!out.date)out.date=dk(today)}
   if(kind==='event'){out.title=f;if(!out.date)out.notes.push('Add the date')}
   if(kind==='person'){
@@ -1199,7 +1257,7 @@ function logDone(cat){track();DB.log.push({cat,at:Date.now()});if(DB.log.length>
 /* ---------- Ginger: habits ---------- */
 const HB={
   due(h,d){const s=h.habit||{type:'daily'},st=fromKey(h.start);if(st&&day0(d)<st)return false;
-    if(s.type==='weekdays')return(s.days||[]).includes(d.getDay());if(s.type==='everyN')return daysBetween(st||d,d)%Math.max(1,s.n||1)===0;return true},
+    if(s.type==='rule')return REP.ok(s.rule)&&REP.is(s.rule,st||fromKey(dkey(new Date(h.created||Date.now()))),d);if(s.type==='weekdays')return(s.days||[]).includes(d.getDay());if(s.type==='everyN')return daysBetween(st||d,d)%Math.max(1,s.n||1)===0;return true},
   target(h){return h.habit&&h.habit.type==='timesPerDay'?Math.max(1,h.habit.n||1):1},
   count(h,d){return(h.log||{})[dkey(d)]||0},
   done(h,d){return HB.count(h,d)>=HB.target(h)},
@@ -1213,7 +1271,7 @@ const HB={
     return{n:c,unit:c===1?'day':'days'}},
   behind(h,now){if(!h.habit||h.habit.type!=='perWeek')return false;const left=7-((now.getDay()+6)%7);return(h.habit.n||1)-HB.weekCount(h,now)>left-(HB.done(h,now)?1:0)},
   sched(h){const s=h.habit||{type:'daily'},t=h.window?' \u00b7 '+WIN_LBL[h.window]:h.time?' at '+fmtTime(h.time):'';
-    return s.type==='daily'?'Every day'+t:s.type==='timesPerDay'?s.n+'\u00d7 a day':s.type==='perWeek'?s.n+'\u00d7 a week':s.type==='everyN'?'Every '+s.n+' days'+t:
+    return s.type==='rule'?REP.txt(s.rule,fromKey(h.start))+t:s.type==='daily'?'Every day'+t:s.type==='timesPerDay'?s.n+'\u00d7 a day':s.type==='perWeek'?s.n+'\u00d7 a week':s.type==='everyN'?'Every '+s.n+' days'+t:
       (s.days||[]).length===5&&!(s.days||[]).includes(0)&&!(s.days||[]).includes(6)?'Weekdays'+t:'Every '+(s.days||[]).map(i=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]).join(', ')+t},
   tick(h,delta){const k=dkey(new Date());h.log=h.log||{};const before=HB.streak(h,new Date()).n;h.log[k]=Math.max(0,Math.min(HB.target(h),(h.log[k]||0)+delta));if(!h.log[k])delete h.log[k];h.updated=Date.now();
     if(delta>0&&HB.done(h,new Date())){logDone('ginger');const after=HB.streak(h,new Date()).n;if([7,30,100,365].includes(after)&&after>before){cheer('ginger','Wow! '+after+'-'+HB.streak(h,new Date()).unit.replace(/s$/,'')+' streak on "'+h.title+'"!')}else cheer('ginger')}save()},
@@ -1221,20 +1279,58 @@ const HB={
     if(d>end)st='future';else if(fromKey(h.start)&&d<fromKey(h.start))st='off';else if(HB.done(h,d))st='done';else if(HB.count(h,d)>0)st='part';else if(!HB.due(h,d))st='off';else st=d.getTime()===end.getTime()?'todo':'miss';out.push({d,st})}return out}
 };
 /* ---------- Mochi: bills ---------- */
+/* ---------- repeats: one rule every cat understands ----------
+   {f:'day'|'week'|'month'|'year', n:every n, days:[0-6] (week), m:'date'|'last'|'lastwd'|'nth' (month/year), day, nth:1..4 or -1 (last), wd:0-6, month:1-12 (year), until:'YYYY-MM-DD', count} */
+const WDN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const REP={
+  ok(r){return!!r&&['day','week','month','year'].includes(r.f)},
+  dayIn(r,y,m,a){const dim=new Date(y,m+1,0).getDate();
+    if(r.m==='last')return new Date(y,m,dim);
+    if(r.m==='lastwd'){let d=dim;while([0,6].includes(new Date(y,m,d).getDay()))d--;return new Date(y,m,d)}
+    if(r.m==='nth'){const wd=r.wd!=null?+r.wd:a.getDay();if(+r.nth===-1){let d=dim;while(new Date(y,m,d).getDay()!==wd)d--;return new Date(y,m,d)}
+      const d=1+((wd-new Date(y,m,1).getDay()+7)%7)+7*((+r.nth||1)-1);return d<=dim?new Date(y,m,d):null}
+    return new Date(y,m,Math.min(+r.day||a.getDate(),dim))},
+  /* walk the occurrences from the anchor day in order; fn(day,index) returns true to stop */
+  each(r,anchor,fn){const a=day0(anchor),n=Math.max(1,+r.n||1),u=r.until?fromKey(r.until):null;let i=0;
+    const emit=d=>{if(u&&d>u)return true;if(r.count&&i>=+r.count)return true;i++;return fn(d,i)};
+    if(r.f==='day'){for(let k=0;k<20000;k++)if(emit(addD(a,k*n)))return}
+    else if(r.f==='week'){const ds=(r.days&&r.days.length?r.days:[a.getDay()]).map(Number).sort((x,y)=>x-y),first=ds.map(wd=>addD(a,(wd-a.getDay()+7)%7)).sort((x,y)=>x-y)[0],w0=addD(first,-first.getDay());
+      for(let w=0;w<5000;w++)for(const wd of ds){const d=addD(w0,w*7*n+wd);if(d<a)continue;if(emit(d))return}}
+    else if(r.f==='month'){for(let k=0;k<2400;k++){const mm=a.getMonth()+k*n,y=a.getFullYear()+Math.floor(mm/12),d=REP.dayIn(r,y,((mm%12)+12)%12,a);if(!d||d<a)continue;if(emit(d))return}}
+    else if(r.f==='year'){const mo=(+r.month||a.getMonth()+1)-1;for(let k=0;k<300;k++){const d=REP.dayIn(r.m?r:Object.assign({},r,{day:r.day||a.getDate()}),a.getFullYear()+k*n,mo,a);if(!d||d<a)continue;if(emit(d))return}}},
+  onOrAfter(r,anchor,from){let out=null;const f=day0(from);if(r.f==='day'&&!r.count){const a=day0(anchor),n=Math.max(1,+r.n||1),k=Math.max(0,Math.ceil(daysBetween(a,f)/n)),d=addD(a,k*n);return r.until&&d>fromKey(r.until)?null:d}
+    REP.each(r,anchor,d=>{if(d>=f){out=d;return true}});return out},
+  after(r,anchor,day){return REP.onOrAfter(r,anchor,addD(day0(day),1))},
+  is(r,anchor,day){const d=REP.onOrAfter(r,anchor,day);return!!d&&d.getTime()===day0(day).getTime()},
+  between(r,anchor,a,b){const out=[],A=day0(a),B=day0(b);REP.each(r,anchor,d=>{if(d>B)return true;if(d>=A)out.push(d)});return out},
+  txt(r,anchor){if(!REP.ok(r))return'';const n=Math.max(1,+r.n||1),a=anchor?day0(anchor):day0(new Date()),dn=i=>WDN[i].slice(0,3),
+      on=()=>r.m==='last'?'on the last day':r.m==='lastwd'?'on the last working day':r.m==='nth'?'on the '+(+r.nth===-1?'last':['','first','second','third','fourth'][+r.nth||1])+' '+WDN[r.wd!=null?+r.wd:a.getDay()]:'on the '+(+r.day||a.getDate())+ord(+r.day||a.getDate());
+    let s=r.f==='day'?(n===1?'Every day':n===2?'Every other day':'Every '+n+' days')
+      :r.f==='week'?(n===1?'Every ':n===2?'Every other ':'Every '+n+' weeks on ')+((r.days&&r.days.length?r.days:[a.getDay()]).map(Number).sort((x,y)=>x-y).map(dn).join(' & '))
+      :r.f==='month'?(n===1?'Every month ':n===2?'Every other month ':'Every '+n+' months ')+on()
+      :(n===1?'Every year ':'Every '+n+' years ')+(r.m&&r.m!=='date'?on()+' of '+new Date(2000,(+r.month||a.getMonth()+1)-1,1).toLocaleDateString([],{month:'long'}):'on '+new Date(2000,(+r.month||a.getMonth()+1)-1,+r.day||a.getDate()).toLocaleDateString([],{day:'numeric',month:'short'}));
+    if(r.until)s+=', until '+fromKey(r.until).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'});if(r.count)s+=', '+r.count+' times';return s}
+};
 const BL={
-  once(b){const d=fromKey(b.date);return d?new Date(d.getFullYear(),d.getMonth(),d.getDate(),9,0):null},
-  occ(b,y,m){if(b.freq==='once')return BL.once(b)||new Date(y,m,1,9,0);const dim=new Date(y,m+1,0).getDate(),at=new Date(y,m,Math.min(b.day||1,dim),9,0);return at},
-  inMonth(b,y,m){if(b.freq==='once'){const d=BL.once(b);return!!d&&d.getFullYear()===y&&d.getMonth()===m}if(b.freq==='yearly')return m===(b.month||1)-1;if(b.freq==='quarterly')return((m-((b.month||1)-1))%3+3)%3===0;return true},
-  pkey(b,at){return b.freq==='once'?'once':b.freq==='yearly'?String(at.getFullYear()):mkey(at)},
-  next(b,now){if(b.freq==='once'){const at=BL.once(b);return at&&!(b.paid||{}).once?{at,key:'once'}:null}const st=fromKey(b.start)||day0(now);let y=st.getFullYear(),m=st.getMonth();
+  tm(b){return b.time||'09:00'},
+  once(b){const d=fromKey(b.date);return d?fromKey(dkey(d),BL.tm(b)):null},
+  anchor(b){return fromKey(b.start)||fromKey(b.date)||day0(new Date())},
+  occ(b,y,m){if(b.freq==='custom')return(BL.occsIn(b,y,m)[0])||fromKey(dkey(new Date(y,m,1)),BL.tm(b));if(b.freq==='once')return BL.once(b)||new Date(y,m,1,9,0);const dim=new Date(y,m+1,0).getDate();return fromKey(dkey(new Date(y,m,Math.min(b.day||1,dim))),BL.tm(b))},
+  occsIn(b,y,m){if(b.freq==='custom')return REP.ok(b.rep)?REP.between(b.rep,BL.anchor(b),new Date(y,m,1),new Date(y,m+1,0)).map(d=>fromKey(dkey(d),BL.tm(b))):[];
+    if(!BL.inMonth(b,y,m))return[];const at=BL.occ(b,y,m);return fromKey(b.start)&&b.freq!=='once'&&day0(at)<fromKey(b.start)?[]:[at]},
+  inMonth(b,y,m){if(b.freq==='custom')return BL.occsIn(b,y,m).length>0;if(b.freq==='once'){const d=BL.once(b);return!!d&&d.getFullYear()===y&&d.getMonth()===m}if(b.freq==='yearly')return m===(b.month||1)-1;if(b.freq==='quarterly')return((m-((b.month||1)-1))%3+3)%3===0;return true},
+  pkey(b,at){if(b.freq==='custom'){const f=(b.rep||{}).f;return f==='month'?mkey(at):f==='year'?String(at.getFullYear()):dkey(at)}return b.freq==='once'?'once':b.freq==='yearly'?String(at.getFullYear()):mkey(at)},
+  next(b,now){if(b.freq==='custom'){if(!REP.ok(b.rep))return null;let r=null;const lim=addD(day0(now||new Date()),800);
+      REP.each(b.rep,BL.anchor(b),d=>{if(d>lim)return true;const at=fromKey(dkey(d),BL.tm(b)),key=BL.pkey(b,at);if(!(b.paid||{})[key]){r={at,key};return true}});return r}
+    if(b.freq==='once'){const at=BL.once(b);return at&&!(b.paid||{}).once?{at,key:'once'}:null}const st=fromKey(b.start)||day0(now);let y=st.getFullYear(),m=st.getMonth();
     for(let k=0;k<40;k++){if(BL.inMonth(b,y,m)){const at=BL.occ(b,y,m),key=BL.pkey(b,at);if(day0(at)>=day0(st)&&!(b.paid||{})[key])return{at,key}}m++;if(m>11){m=0;y++}}return null},
   state(b,now){const n=BL.next(b,now);if(!n)return{state:'none'};const dd=daysBetween(now,n.at);return{...n,dd,state:dd<0?'overdue':dd===0?'today':dd<=2?'soon':'upcoming'}},
-  month(now){let total=0,paid=0,left=0,count=0;const y=now.getFullYear(),m=now.getMonth();for(const b of byCat('mochi')){if(!BL.inMonth(b,y,m))continue;const at=BL.occ(b,y,m);if(fromKey(b.start)&&day0(at)<fromKey(b.start))continue;
+  month(now){let total=0,paid=0,left=0,count=0;const y=now.getFullYear(),m=now.getMonth();for(const b of byCat('mochi'))for(const at of BL.occsIn(b,y,m)){
     const key=BL.pkey(b,at),a=+b.amount||0;count++;total+=a;if((b.paid||{})[key])paid+=+(b.paid[key].amount||a);else left+=a}return{total,paid,left,count}},
   pay(b){const s=BL.state(b,new Date());if(!s.key)return;b.paid=b.paid||{};b.paid[s.key]={on:dkey(new Date()),amount:b.amount||null};b.updated=Date.now();logDone('mochi');cheer('mochi','Mochi marked "'+b.title+'" paid.'+(b.freq==='once'?' That one’s finished!':''));save()},
   unpay(b,key){delete b.paid[key];b.updated=Date.now();save()},
-  finished(b){return b.freq==='once'&&!!(b.paid||{}).once},
-  freqTxt(b){if(b.freq==='once'){const d=BL.once(b);return'One-off'+(d?', due '+d.toLocaleDateString([],{day:'numeric',month:'short',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}):'')}return b.freq==='yearly'?'Every year on '+new Date(2000,(b.month||1)-1,b.day||1).toLocaleDateString([],{day:'numeric',month:'short'}):b.freq==='quarterly'?'Every 3 months on the '+b.day+ord(b.day):'Every month on the '+b.day+ord(b.day)}
+  finished(b){return b.freq==='once'&&!!(b.paid||{}).once||b.freq==='custom'&&!!(b.rep&&(b.rep.until||b.rep.count))&&!BL.next(b,new Date())},
+  freqTxt(b){if(b.freq==='custom')return REP.txt(b.rep,BL.anchor(b))+(b.time?' at '+fmtTime(b.time):'');if(b.freq==='once'){const d=BL.once(b);return'One-off'+(d?', due '+d.toLocaleDateString([],{day:'numeric',month:'short',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined}):'')}return b.freq==='yearly'?'Every year on '+new Date(2000,(b.month||1)-1,b.day||1).toLocaleDateString([],{day:'numeric',month:'short'}):b.freq==='quarterly'?'Every 3 months on the '+b.day+ord(b.day):'Every month on the '+b.day+ord(b.day)}
 };
 /* ---------- Patches: expiry dates ---------- */
 const EX={
@@ -1245,8 +1341,13 @@ const EX={
 };
 /* ---------- Pepper: reminders · Sesame: events & people ---------- */
 const RM={
-  at(t){return fromKey(t.date,effTime(t)||'23:59')},
-  state(t,now){if(t.done)return{state:'done'};const at=RM.at(t);if(!at)return{state:'nodate'};const dd=daysBetween(now,at);
+  /* a repeating appointment is always "the next one"; a repeating reminder moves on when you tick it */
+  at(t,now){if(t.kind==='event'&&REP.ok(t.rep)&&t.date){now=now||new Date();const a=fromKey(t.rep.start||t.date),tm=effTime(t)||'23:59';let d=REP.onOrAfter(t.rep,a,now);
+      if(d&&fromKey(dkey(d),tm)<now&&dkey(d)===dkey(now)&&effTime(t))d=REP.after(t.rep,a,d);return d?fromKey(dkey(d),tm):fromKey(t.date,tm)}
+    return fromKey(t.date,effTime(t)||'23:59')},
+  next(t){if(!REP.ok(t.rep)||!t.date)return null;const a=fromKey(t.rep.start||t.date),now=new Date();let nx=REP.after(t.rep,a,fromKey(t.date));if(nx&&nx<day0(now))nx=REP.onOrAfter(t.rep,a,now);return nx},
+  onDay(t,d){if(!REP.ok(t.rep))return t.date===dkey(d);if(t.done||!t.date)return false;const a=fromKey(t.rep.start||t.date);return day0(d)>=fromKey(t.kind==='event'?(t.rep.start||t.date):t.date)&&REP.is(t.rep,a,d)},
+  state(t,now){if(t.done)return{state:'done'};const at=RM.at(t,now);if(!at)return{state:'nodate'};const dd=daysBetween(now,at);
     if(t.kind==='event'&&at<now)return{at,dd,state:'past'};if(at<now&&(effTime(t)||dd<0))return{at,dd,state:'overdue'};return{at,dd,state:dd===0?'today':dd<=7?'soon':'upcoming'}}
 };
 const PP={
@@ -1256,7 +1357,10 @@ const PP={
     if(p.touchDays){const last=fromKey(p.lastTalked)||fromKey(dkey(new Date(p.created)));r.since=daysBetween(last,now);r.touchDue=r.since>=p.touchDays}return r},
   talked(p){p.lastTalked=dkey(new Date());p.updated=Date.now();logDone('sesame');cheer('sesame','Nice! Sesame noted you talked to '+p.name+'.');save()}
 };
-function complete(t){if(t.kind==='habit')return HB.tick(t,1);if(t.kind==='bill')return BL.pay(t);t.done=true;t.updated=Date.now();logDone(t.cat);cheer(t.cat,'Done! '+CATNAME[t.cat]+' finished "'+t.title+'".');save()}
+function complete(t){if(t.kind==='habit')return HB.tick(t,1);if(t.kind==='bill')return BL.pay(t);
+  if(t.kind==='reminder'&&REP.ok(t.rep)){const nx=RM.next(t);if(nx){t.prevDate=t.date;t.date=dkey(nx);t.snoozeUntil=null;t.snoozes=0;t.updated=Date.now();logDone(t.cat);
+    cheer(t.cat,'Done! '+CATNAME[t.cat]+' will remind you again '+fmtDay(fromKey(t.date),new Date())+'.');save();return}}
+  t.done=true;t.updated=Date.now();logDone(t.cat);cheer(t.cat,'Done! '+CATNAME[t.cat]+' finished "'+t.title+'".');save()}
 function undo(t){t.done=false;t.updated=Date.now();save()}
 function removeTask(t){t.deleted=true;t.updated=Date.now();save()}
 function cheer(cat,msg){const C=cats.find(c=>c.id===cat);if(C)C.partyT=clock.getElapsedTime();if(msg)say(msg)}
@@ -1300,9 +1404,9 @@ function alertPlan(now,alerted){const nt=nudgeTime(),out=[],ms=now.getTime();
     if(alerted[k]){if((e.state==='overdue'||e.state==='expired')&&!e.step&&dkey(e.at)===dkey(now)&&!alerted[k+'|again']&&typeof alerted[k]==='number'&&ms-alerted[k]>=30*60e3&&!quiet(now))out.push({k:k+'|again',again:true,e});continue}
     const timed=e.step?true:!!effTime(t);let fire=false;
     if(e.state==='overdue'||e.state==='expired')fire=true;
-    else if(e.state==='today')fire=timed?e.at<=now:now>=fromKey(dkey(now),nt);
+    else if(e.state==='today'){const own=(t.kind==='person'||t.kind==='expiry')&&!e.step?(t.time||nt):null;fire=own?now>=fromKey(dkey(now),own):timed?e.at<=now:now>=fromKey(dkey(now),nt)}
     else if(t.kind==='event'&&!e.step&&e.at-now<60*60e3&&e.at>now)fire=true;
-    else if(e.state==='soon'&&!e.step&&(t.kind==='expiry'||t.kind==='bill'))fire=now>=fromKey(dkey(now),nt);
+    else if(e.state==='soon'&&!e.step&&(t.kind==='expiry'||t.kind==='bill'))fire=now>=fromKey(dkey(now),t.time||nt);
     if(!fire)continue;
     /* quiet hours: automatic nudges are held (not marked) so they surface when quiet hours end; deliberate night-time reminders still ring */
     const deliberate=t.kind==='reminder'&&e.state==='today'&&!!t.time&&!t.window&&!e.step;if(quiet(now)&&!deliberate)continue;
@@ -1336,7 +1440,7 @@ function corkBg(x,w,h){x.fillStyle='#c79a68';x.fillRect(0,0,w,h);x.strokeStyle='
 function drawBoards(){const now=new Date(),O_=OFFICE_O;
   redraw(O_.board,(x,w,h)=>{x.fillStyle='#fbfbf7';x.fillRect(0,0,w,h);const y=now.getFullYear(),m=now.getMonth(),first=new Date(y,m,1).getDay(),n=new Date(y,m+1,0).getDate(),by={};
     const put=(d,c)=>{if(d&&d.getMonth()===m&&d.getFullYear()===y){const a=(by[d.getDate()]=by[d.getDate()]||[]);if(!a.includes(c))a.push(c)}};
-    for(const t of liveItems()){if(t.kind==='reminder'||t.kind==='event'){if(!t.done)put(RM.at(t),t.cat)}else if(t.kind==='bill'){if(BL.inMonth(t,y,m))put(BL.occ(t,y,m),'mochi')}
+    for(const t of liveItems()){if(t.kind==='reminder'||t.kind==='event'){if(!t.done){if(REP.ok(t.rep)){for(let d=1;d<=n;d++)if(RM.onDay(t,new Date(y,m,d)))put(new Date(y,m,d),t.cat)}else put(RM.at(t),t.cat)}}else if(t.kind==='bill'){for(const at of BL.occsIn(t,y,m))put(at,'mochi')}
       else if(t.kind==='expiry'){if(!t.done&&t.date)put(fromKey(t.date),'patches')}else if(t.kind==='person'){const r=PP.info(t,new Date(y,m,1));put(r.bday,'sesame');put(r.anniv,'sesame')}}
     x.fillStyle='#3a4a6a';x.font='600 40px '+FNT;x.textAlign='left';x.fillText(now.toLocaleString('en',{month:'long'})+' '+y,30,52);const cw=(w-60)/7,ch=(h-110)/6;
     x.font='500 22px '+FNT;'SMTWTFS'.split('').forEach((c,i)=>{x.fillStyle='#7a8aa6';x.fillText(c,30+i*cw+cw/2-7,88)});
@@ -1397,7 +1501,7 @@ function catScreen(id){const now=new Date(),L=byCat(id);let h='';
   if(id==='pepper'){h+=head('pepper');const rows=L.map(t=>({t,s:RM.state(t,now)}));const grp=[['Overdue',x=>x.s.state==='overdue'],['Today',x=>x.s.state==='today'],['Coming up',x=>x.s.state==='soon'||x.s.state==='upcoming'],['Done',x=>x.s.state==='done']];
     let any=false;for(const[g,f]of grp){let it=rows.filter(f).sort((a,b)=>(a.s.at||0)-(b.s.at||0));if(g==='Done')it=it.slice(-5);if(!it.length)continue;any=true;
       h+='<h3>'+g+'</h3><ul class="tl">'+it.map(({t,s})=>'<li class="'+(s.state==='overdue'?'bad':s.state==='done'?'done':'')+'">'+btn(s.state==='done'?'un':'ck',t.id,s.state==='done'?'\u2713':'','ck')+
-        rowHead(t,'<div>'+esc(t.title)+'</div><small>'+(s.at?whenTxt(t,s.at,now):'')+(snoozed(t,now)?' \u00b7 snoozed':'')+(t.snoozes?' \u00b7 snoozed '+t.snoozes+'\u00d7':'')+'</small>')+'</li>'+(openRow===t.id?'<li class="detail">'+editRow(t)+'</li>':'')).join('')+'</ul>'}
+        rowHead(t,'<div>'+esc(t.title)+'</div><small>'+(s.at?whenTxt(t,s.at,now):'')+repTag(t)+(snoozed(t,now)?' \u00b7 snoozed':'')+(t.snoozes?' \u00b7 snoozed '+t.snoozes+'\u00d7':'')+'</small>')+'</li>'+(openRow===t.id?'<li class="detail">'+editRow(t)+'</li>':'')).join('')+'</ul>'}
     if(!any)h+='<p class="empty">No reminders. Try \u201ccall the bank tomorrow 3pm\u201d.</p>'}
   if(id==='sesame'){h+=head('sesame');const ppl=L.filter(t=>t.kind==='person').map(t=>({t,r:PP.info(t,now)})).sort((a,b)=>(a.r.bdd??999)-(b.r.bdd??999));
     h+='<h3>People</h3><ul class="tl">'+(ppl.map(({t,r})=>{let r_='<li class="'+(r.touchDue?'warn':'')+'"><span class="cd">'+(r.bdd==null?'\u2665':r.bdd+'d')+'</span>'+
@@ -1406,7 +1510,7 @@ function catScreen(id){const now=new Date(),L=byCat(id);let h='';
       if(openRow===t.id)r_+='<li class="detail"><small>Gift ideas</small><ul class="hist">'+(t.gifts||[]).map((g,i)=>'<li>'+esc(g)+' <button class="mini" data-a="ungift" data-id="'+t.id+'" data-k="'+i+'">remove</button></li>').join('')+'</ul>'+
         '<div class="qrow"><input id="gift_'+t.id+'" placeholder="Add a gift idea" maxlength="80"><button class="mini" data-a="gift" data-id="'+t.id+'">Add</button></div>'+(t.notes?'<small>'+esc(t.notes)+'</small>':'')+editRow(t)+'</li>';return r_}).join('')||'<li class="empty">No people yet. Try \u201cMum\u2019s birthday 12 June 1966\u201d.</li>')+'</ul>';
     const ev=L.filter(t=>t.kind==='event').map(t=>({t,s:RM.state(t,now)})).filter(x=>x.s.state!=='past').sort((a,b)=>(a.s.at||0)-(b.s.at||0));
-    h+='<h3>Dates</h3><ul class="tl">'+(ev.map(({t,s})=>'<li>'+btn('ck',t.id,'','ck')+rowHead(t,'<div>'+esc(t.title)+'</div><small>'+(s.at?whenTxt(t,s.at,now):'add a date')+(t.travel?' \u00b7 '+t.travel+' min travel':'')+'</small>')+'</li>'+(openRow===t.id?'<li class="detail">'+editRow(t)+'</li>':'')).join('')||'<li class="empty">No appointments coming up.</li>')+'</ul>'}
+    h+='<h3>Dates</h3><ul class="tl">'+(ev.map(({t,s})=>'<li>'+btn('ck',t.id,'','ck')+rowHead(t,'<div>'+esc(t.title)+'</div><small>'+(s.at?whenTxt(t,s.at,now):'add a date')+repTag(t)+(t.travel?' \u00b7 '+t.travel+' min travel':'')+'</small>')+'</li>'+(openRow===t.id?'<li class="detail">'+editRow(t)+'</li>':'')).join('')||'<li class="empty">No appointments coming up.</li>')+'</ul>'}
   if(id==='jar'){h+=head('jar','undated ideas, brought back now and then');const L2=ideasList().sort((a,b)=>b.created-a.created);
     h+='<ul class="tl">'+(L2.map(t=>'<li><span class="dot" style="background:'+DOT.jar+'"></span>'+rowHead(t,'<div>'+esc(t.title)+'</div><small>added '+fmtDay(new Date(t.created))+'</small>')+'</li>'+(openRow===t.id?'<li class="detail">'+btn('mkrem',t.id,'Make it a reminder')+photoBlock(t)+'<div class="acts">'+btn('ed',t.id,'Edit')+btn('rm',t.id,'Delete','mini danger')+'</div></li>':'')).join('')||'<li class="empty">The jar is empty. Type \u201cidea: try that ramen place\u201d or \u201csomeday learn pottery\u201d.</li>')+'</ul>'}
   h+='<div class="two">'+(id==='sesame'?'<button class="wide" data-a="addk" data-id="person">+ Person</button><button class="wide" data-a="addk" data-id="event">+ Date</button>':'<button class="wide" data-a="addk" data-id="'+CAT_KIND[id]+'">+ Add to '+CATNAME[id]+'</button>')+'</div>';
@@ -1435,36 +1539,74 @@ function openAgenda(){sheetMode='agenda';sheetCat=null;const now=new Date(),E_=e
   $('agq').oninput=e=>{const v=e.target.value.trim();$('agres').innerHTML=v.length>1?'<h3>Found</h3>'+resultsHTML(searchAll(v)):'';wireResults()};
   $('sheet').querySelectorAll('[data-a=go]').forEach(b=>b.onclick=()=>openCat(b.dataset.id));$('sheet').querySelectorAll('[data-a=snz]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=DB.items.find(x=>x.id===b.dataset.id);if(t)snoozeMenu(t,()=>openAgenda())})}
 /* forms */
+/* the same "when" settings for every cat: repeat (with an end) and early reminders */
+function repTag(t){return REP.ok(t.rep)?' \u00b7 \u21bb '+esc(REP.txt(t.rep,fromKey(t.rep.start||t.date))):''}
+function repHTML(r,anchor,noneLbl){r=r||{};const f=REP.ok(r)?r.f:'',a=fromKey(anchor)||new Date(),dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],days=r.days&&r.days.length?r.days.map(Number):[a.getDay()],
+    so=(n,l,o,v)=>'<label>'+l+'<select name="'+n+'">'+o.map(([k,x])=>'<option value="'+k+'"'+(String(k)===String(v)?' selected':'')+'>'+x+'</option>').join('')+'</select></label>',ends=r.until?'until':r.count?'count':'';
+  return'<fieldset class="rep"><legend>Repeat</legend><div class="two">'+so('rf','Repeats',[['',noneLbl||'Never'],['day','Every day / every few days'],['week','Weekly'],['month','Monthly'],['year','Yearly']],f)+
+    '<label id="rnl"'+(f?'':' hidden')+'>Every \u2026 <span id="rnu">'+({day:'days',week:'weeks',month:'months',year:'years'}[f]||'')+'</span><input name="rn" type="number" min="1" max="52" value="'+(+r.n||1)+'"></label></div>'+
+    '<div class="days" id="rwk"'+(f==='week'?'':' hidden')+'>'+dn.map((d,i)=>'<label class="row"><input type="checkbox" name="rd'+i+'"'+(days.includes(i)?' checked':'')+'>'+d+'</label>').join('')+'</div>'+
+    '<div id="rmo"'+(f==='month'||f==='year'?'':' hidden')+'>'+so('rm','On',[['date','the same date as the date above'],['last','the last day of the month'],['lastwd','the last working day of the month'],['nth','a weekday, e.g. last Saturday']],r.m||'date')+
+      '<div class="two" id="rnth"'+(r.m==='nth'?'':' hidden')+'>'+so('rnth','Which',[['1','1st'],['2','2nd'],['3','3rd'],['4','4th'],['-1','Last']],r.nth||1)+so('rwd','Day',WDN.map((d,i)=>[i,d]),r.wd!=null?r.wd:a.getDay())+'</div></div>'+
+    '<div class="two" id="rend"'+(f?'':' hidden')+'>'+so('re','Ends',[['','Never'],['until','On a date'],['count','After a number of times']],ends)+
+      '<label id="rul"'+(ends==='until'?'':' hidden')+'>Last date<input type="date" name="ru" value="'+esc(r.until||'')+'"></label><label id="rcl"'+(ends==='count'?'':' hidden')+'>Times<input type="number" name="rc" min="1" max="999" value="'+(r.count||'')+'"></label></div>'+
+    '<p class="fine" id="rtxt">'+esc(REP.ok(r)?REP.txt(r,a):'')+'</p></fieldset>'}
+function beforeHTML(list){list=(list||[]).map(Number);return'<fieldset class="rep"><legend>Remind me early too</legend><div class="days">'+BEFORE.map(([m,l])=>'<label class="row"><input type="checkbox" name="bf'+m+'"'+(list.includes(m)?' checked':'')+'>'+l+'</label>').join('')+'</div></fieldset>'}
+function readBefore(d){return BEFORE.map(([m])=>m).filter(m=>d['bf'+m])}
+function readRep(d,anchor){if(!d.rf)return null;const r={f:d.rf,n:Math.min(52,Math.max(1,+d.rn||1))},a=fromKey(anchor)||day0(new Date());
+  if(r.f==='week'){r.days=[0,1,2,3,4,5,6].filter(i=>d['rd'+i]);if(!r.days.length)r.days=[a.getDay()]}
+  if(r.f==='month'||r.f==='year'){r.m=d.rm||'date';if(r.m==='date')r.day=a.getDate();if(r.m==='nth'){r.nth=+d.rnth||1;r.wd=+d.rwd}if(r.f==='year')r.month=a.getMonth()+1}
+  if(d.re==='until'&&fromKey(d.ru))r.until=d.ru;if(d.re==='count'&&+d.rc>0)r.count=Math.min(999,+d.rc);r.start=dkey(a);return r}
+function repWire(f,anchorName){const g=()=>Object.fromEntries(new FormData(f));let wd0=(fromKey(g()[anchorName])||new Date()).getDay();
+  /* moving the date moves the weekly day with it, unless you picked days yourself */
+  const an=f.querySelector('[name="'+anchorName+'"]');if(an)an.addEventListener('change',()=>{const a=fromKey(an.value);if(!a)return;const box=[0,1,2,3,4,5,6].map(i=>f.querySelector('[name=rd'+i+']')),on=box.filter(b=>b&&b.checked);
+    if(on.length===1&&on[0]===box[wd0]){box[wd0].checked=false;box[a.getDay()].checked=true}wd0=a.getDay()});
+  const up=()=>{const d=g(),v=d.rf;$('rnl').hidden=!v;$('rwk').hidden=v!=='week';$('rmo').hidden=!(v==='month'||v==='year');$('rnth').hidden=d.rm!=='nth';$('rend').hidden=!v;
+    $('rul').hidden=d.re!=='until';$('rcl').hidden=d.re!=='count';$('rnu').textContent={day:'days',week:'weeks',month:'months',year:'years'}[v]||'';const r=readRep(d,d[anchorName]);$('rtxt').textContent=r?REP.txt(r,fromKey(d[anchorName])):''};
+  f.querySelectorAll('.rep select,.rep input,[name="'+anchorName+'"]').forEach(i=>{i.addEventListener('change',up);i.addEventListener('input',up)})}
+function billDue(v){if(v.freq==='once'||!v.id)return v.date||dkey(new Date());const s=v.id?BL.state(v,new Date()):null;return s&&s.at?dkey(s.at):(v.start||dkey(new Date()))}
+function billRule(v){if(v.freq==='custom')return v.rep;if(v.freq==='once')return null;if(v.freq==='yearly')return{f:'year',n:1};return{f:'month',n:v.freq==='quarterly'?3:1,m:'date'}}
 function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.assign({},pre||{},t||{});const F=[];
   const inp=(n,l,type,val,extra)=>'<label>'+l+'<input name="'+n+'" type="'+(type||'text')+'" value="'+esc(val??'')+'" '+(extra||'')+'></label>';
   const selF=(n,l,opts,val)=>'<label>'+l+'<select name="'+n+'">'+opts.map(([k,lab])=>'<option value="'+k+'"'+(String(k)===String(val)?' selected':'')+'>'+lab+'</option>').join('')+'</select></label>';
   if(kind==='idea')F.push(inp('title','Idea','text',v.title,'required maxlength="120"'));
-  if(kind==='habit'){const hb=v.habit||{type:'daily'};F.push(inp('title','Habit','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('htype','How often',[['daily','Every day'],['timesPerDay','Several times a day'],['perWeek','Times a week'],['weekdays','On set days'],['everyN','Every few days']],hb.type)+inp('hn','How many / every N','number',hb.n||'','min="1" max="30"')+'</div>',
-    '<div class="days">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>'<label class="row"><input type="checkbox" name="d'+i+'"'+((hb.days||[]).includes(i)?' checked':'')+'>'+d+'</label>').join('')+'</div>',inp('time','Time (optional)','time',v.time))}
+  if(kind==='habit'){const hb=v.habit||{type:'daily'};F.push(inp('title','Habit','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('htype','How often',[['daily','Every day'],['timesPerDay','Several times a day'],['perWeek','Times a week'],['weekdays','On set days'],['everyN','Every few days'],['rule','Custom repeat (monthly, last Saturday…)']],hb.type)+inp('hn','How many / every N','number',hb.n||'','min="1" max="30"')+'</div>',
+    '<div class="days">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>'<label class="row"><input type="checkbox" name="d'+i+'"'+((hb.days||[]).includes(i)?' checked':'')+'>'+d+'</label>').join('')+'</div>',inp('time','Time (optional)','time',v.time),
+    '<div id="hrule"'+(hb.type==='rule'?'':' hidden')+'>'+inp('hstart','Starting','date',v.start||dkey(new Date()))+repHTML(hb.rule,v.start||dkey(new Date()))+'</div>',beforeHTML(v.before))}
   if(kind==='bill')F.push('<label class="row"><input type="checkbox" name="stepheads"'+((v.prepOff||[]).includes('heads')?'':' checked')+'> Heads-up 2 days before</label>');
-  if(kind==='bill')F.splice(F.length-1,0,inp('title','Bill','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('amount','Amount (optional)','number',v.amount,'step="0.01" min="0"')+selF('freq','How often',[['monthly','Monthly'],['quarterly','Every 3 months'],['yearly','Yearly'],['once','One-off (just once)']],v.freq||'monthly')+'</div>',
-    '<div class="two" id="brep"'+(v.freq==='once'?' hidden':'')+'>'+inp('day','Day of month','number',v.day||new Date().getDate(),'min="1" max="31"')+selF('month','Month (yearly / start)',MONTHS_.map((m,i)=>[i+1,m]),v.month||new Date().getMonth()+1)+'</div>',
-    '<div id="bonce"'+(v.freq==='once'?'':' hidden')+'>'+inp('due','Due date','date',v.date||dkey(new Date()))+'</div>','<label class="row"><input type="checkbox" name="autopay"'+(v.autopay?' checked':'')+'> Paid automatically (autopay)</label>',inp('notes','Notes (optional)','text',v.notes,'maxlength="120"'));
-  if(kind==='expiry')F.push(inp('title','What expires','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('type','Type',Object.entries(EXPLBL),v.type||'other')+inp('date','Expiry date','date',v.date,'required')+'</div>',inp('lead','Warn me this many days before','number',v.lead??LEAD[v.type||'other'],'min="0" max="365"'));
+  if(kind==='bill')F.splice(F.length-1,0,inp('title','Bill','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('amount','Amount (optional)','number',v.amount,'step="0.01" min="0"')+inp('due',isNew?'Due date (first one)':'Next due date','date',billDue(v))+'</div>',
+    inp('btime','Time (optional)','time',v.time),repHTML(isNew&&!v.freq?{f:'month',n:1,m:'date'}:billRule(v),billDue(v),'Never (one-off)'),'<label class="row"><input type="checkbox" name="autopay"'+(v.autopay?' checked':'')+'> Paid automatically (autopay)</label>',inp('notes','Notes (optional)','text',v.notes,'maxlength="120"'),beforeHTML(v.before));
+  if(kind==='expiry')F.push(inp('title','What expires','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('type','Type',Object.entries(EXPLBL),v.type||'other')+inp('date','Expiry date','date',v.date,'required')+'</div>','<div class="two">'+inp('lead','Warn me this many days before','number',v.lead??LEAD[v.type||'other'],'min="0" max="365"')+inp('etime','Warning time (optional)','time',v.time)+'</div>',beforeHTML(v.before));
   if(kind==='reminder'||kind==='event'){F.push(inp('title',kind==='event'?'Appointment / date':'Remind me to','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('date','Date','date',v.date||dkey(new Date()),'required')+inp('time','Exact time (optional)','time',v.window?'':v.time)+'</div>',
     selF('window','\u2026or a time of day',[['','\u2013']].concat(Object.keys(WIN_LBL).filter(k=>k!=='weekend').map(k=>[k,WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+' ('+fmtTime(winTime(k))+')'])),v.window||''));
+    F.push(repHTML(v.rep,v.date||dkey(new Date())),beforeHTML(v.before));
     if(kind==='event')F.push(inp('travel','Travel time in minutes (for a \u201cleave now\u201d nudge)','number',v.travel||'','min="0" max="600"'),'<label class="row"><input type="checkbox" name="stepprep"'+((v.prepOff||[]).includes('prep')?'':' checked')+'> Remind me to get ready the evening before</label>')}
   if(kind==='person'){const md=v.birthday?v.birthday.split('-'):['',''],an=v.anniversary?v.anniversary.split('-'):['',''];
     F.push(inp('name','Name','text',v.name||v.title,'required maxlength="40"'),'<div class="two">'+selF('bm','Birthday month',[['','\u2013']].concat(MONTHS_.map((m,i)=>[pad(i+1),m])),md[0])+inp('bd','Day','number',md[1]?+md[1]:'','min="1" max="31"')+inp('year','Year (optional)','number',v.year||'','min="1900" max="2100"')+'</div>',
       '<div class="two">'+selF('am','Anniversary month',[['','\u2013']].concat(MONTHS_.map((m,i)=>[pad(i+1),m])),an[0])+inp('ad','Day','number',an[1]?+an[1]:'','min="1" max="31"')+'</div>',inp('touch','Keep in touch every N days (0 = off)','number',v.touchDays||0,'min="0" max="365"'),inp('notes','Notes / interests','text',v.notes,'maxlength="160"'),
-      '<small>Birthday lead-ups</small><div class="two">'+inp('giftDays','Pick a gift (days before, 0 = off)','number',(v.prepOff||[]).includes('gift')?0:(v.giftDays??7),'min="0" max="60"')+inp('buyDays','Buy it (days before, 0 = off)','number',(v.prepOff||[]).includes('buy')?0:(v.buyDays??3),'min="0" max="60"')+'</div><label class="row"><input type="checkbox" name="stepwish"'+((v.prepOff||[]).includes('wish')?'':' checked')+'> Remind me to send wishes on the day</label>')}
+      '<small>Birthday lead-ups</small><div class="two">'+inp('giftDays','Pick a gift (days before, 0 = off)','number',(v.prepOff||[]).includes('gift')?0:(v.giftDays??7),'min="0" max="60"')+inp('buyDays','Buy it (days before, 0 = off)','number',(v.prepOff||[]).includes('buy')?0:(v.buyDays??3),'min="0" max="60"')+'</div><label class="row"><input type="checkbox" name="stepwish"'+((v.prepOff||[]).includes('wish')?'':' checked')+'> Remind me to send wishes on the day</label>',inp('ptime','Reminder time (optional)','time',v.time),beforeHTML(v.before))}
   openSheet('<h2>'+(isNew?'New ':'Edit ')+{habit:'habit',bill:'bill',expiry:'expiry date',reminder:'reminder',event:'date',person:'person',idea:'idea'}[kind]+' <small>'+CATNAME[KIND_CAT[kind]]+'</small></h2><form id="ef">'+F.join('')+'<button class="wide" type="submit">'+(isNew?'Add':'Save changes')+'</button></form>');
   const f=$('ef');if(kind==='expiry')f.type.onchange=()=>{f.lead.value=LEAD[f.type.value]};
-  if(kind==='bill')f.freq.onchange=()=>{const o=f.freq.value==='once';$('brep').hidden=o;$('bonce').hidden=!o};
+  if(kind==='bill')repWire(f,'due');if(kind==='reminder'||kind==='event')repWire(f,'date');
+  if(kind==='habit'){repWire(f,'hstart');f.htype.addEventListener('change',()=>{$('hrule').hidden=f.htype.value!=='rule'})}
   f.onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));const p={kind};
     if(kind==='idea')p.title=d.title.trim();
-    if(kind==='habit'){p.title=d.title.trim();p.habit={type:d.htype};if(['timesPerDay','perWeek','everyN'].includes(d.htype))p.habit.n=Math.max(1,+d.hn||(d.htype==='perWeek'?3:2));if(d.htype==='weekdays'){p.habit.days=[0,1,2,3,4,5,6].filter(i=>d['d'+i]);if(!p.habit.days.length)return say('Pick at least one day.')}p.time=d.time||null}
-    if(kind==='bill'){Object.assign(p,{title:d.title.trim(),amount:d.amount===''?null:+d.amount,freq:d.freq,day:Math.min(31,Math.max(1,+d.day||1)),month:+d.month,autopay:!!d.autopay,notes:d.notes||''});
-      if(d.freq==='once'){if(!fromKey(d.due))return say('Pick the due date.');p.date=d.due;p.day=+d.due.slice(8);p.month=+d.due.slice(5,7)}else if(t&&t.freq==='once'){p.date=null;if(t.paid)delete t.paid.once}}
-    if(kind==='expiry')Object.assign(p,{title:d.title.trim(),type:d.type,date:d.date,lead:+d.lead});
-    if(kind==='reminder'||kind==='event'){Object.assign(p,{title:d.title.trim(),date:d.date,window:d.window||null,time:d.window?winTime(d.window):(d.time||null)});if(kind==='event'){p.travel=+d.travel||0;p.prepOff=d.stepprep?[]:['prep']}}
+    if(kind==='habit'){p.title=d.title.trim();p.habit={type:d.htype};if(['timesPerDay','perWeek','everyN'].includes(d.htype))p.habit.n=Math.max(1,+d.hn||(d.htype==='perWeek'?3:2));if(d.htype==='weekdays'){p.habit.days=[0,1,2,3,4,5,6].filter(i=>d['d'+i]);if(!p.habit.days.length)return say('Pick at least one day.')}p.time=d.time||null;
+      if(d.htype==='rule'){const r=readRep(d,d.hstart);if(!r)return say('Pick how it repeats.');p.habit={type:'rule',rule:r};p.start=d.hstart||dkey(new Date())}}
+    if(kind==='bill'){if(!fromKey(d.due))return say('Pick the due date.');const r=readRep(d,d.due),due=fromKey(d.due);
+      Object.assign(p,{title:d.title.trim(),amount:d.amount===''?null:+d.amount,autopay:!!d.autopay,notes:d.notes||'',time:d.btime||null,day:due.getDate(),month:due.getMonth()+1,rep:null,date:null});
+      const plain=r&&!r.until&&!r.count&&(r.m||'date')==='date';
+      if(!r){p.freq='once';p.date=d.due}
+      else if(plain&&r.f==='month'&&(r.n===1||r.n===3)){p.freq=r.n===1?'monthly':'quarterly';p.start=d.due}
+      else if(plain&&r.f==='year'&&r.n===1){p.freq='yearly';p.start=d.due}
+      else{p.freq='custom';p.rep=r;p.start=d.due}
+      if(t&&t.freq==='once'&&p.freq!=='once'&&t.paid)delete t.paid.once}
+    if(kind==='expiry')Object.assign(p,{title:d.title.trim(),type:d.type,date:d.date,lead:+d.lead,time:d.etime||null});
+    if(kind==='reminder'||kind==='event'){Object.assign(p,{title:d.title.trim(),date:d.date,window:d.window||null,time:d.window?winTime(d.window):(d.time||null)});
+      {const r=readRep(d,d.date);p.rep=r;if(r){const f1=REP.onOrAfter(r,fromKey(d.date),fromKey(d.date));if(!f1)return say('That repeat never happens – check the dates.');p.date=dkey(f1)}}if(kind==='event'){p.travel=+d.travel||0;p.prepOff=d.stepprep?[]:['prep']}}
     if(kind==='bill')p.prepOff=d.stepheads?[]:['heads'];
-    if(kind==='person'){p.prepOff=[];const gd=+d.giftDays,bd=+d.buyDays;if(!gd)p.prepOff.push('gift');else p.giftDays=gd;if(!bd)p.prepOff.push('buy');else p.buyDays=bd;if(!d.stepwish)p.prepOff.push('wish');Object.assign(p,{name:d.name.trim(),title:d.name.trim(),birthday:d.bm&&d.bd?d.bm+'-'+pad(+d.bd):null,year:d.year?+d.year:null,anniversary:d.am&&d.ad?d.am+'-'+pad(+d.ad):null,touchDays:+d.touch||0,notes:d.notes||''});if(p.touchDays&&!v.lastTalked)p.lastTalked=dkey(new Date())}
+    if(kind==='person'){p.prepOff=[];const gd=+d.giftDays,bd=+d.buyDays;if(!gd)p.prepOff.push('gift');else p.giftDays=gd;if(!bd)p.prepOff.push('buy');else p.buyDays=bd;if(!d.stepwish)p.prepOff.push('wish');Object.assign(p,{name:d.name.trim(),title:d.name.trim(),birthday:d.bm&&d.bd?d.bm+'-'+pad(+d.bd):null,year:d.year?+d.year:null,anniversary:d.am&&d.ad?d.am+'-'+pad(+d.ad):null,touchDays:+d.touch||0,notes:d.notes||''});if(p.touchDays&&!v.lastTalked)p.lastTalked=dkey(new Date());p.time=d.ptime||null}
+    if(kind!=='idea')p.before=readBefore(d);
     if(isNew){if(pre&&pre.photos)p.photos=pre.photos;if(pre&&pre.suggested&&KIND_CAT[kind]!==pre.suggested)learn(p.title||p.name,KIND_CAT[kind]);addItem(p);greet(KIND_CAT[kind]);say(CATNAME[KIND_CAT[kind]]+' picked up "'+(p.title||p.name)+'".')}else{Object.assign(t,p,{updated:Date.now()});save()}openCat(KIND_CAT[kind],true)}}
 const MONTHS_=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function greet(cat){const C=cats.find(c=>c.id===cat);if(C){C.act='glance';C.actT=clock.getElapsedTime()}}
@@ -1547,13 +1689,26 @@ function nudgeTime(){const a=DB.activity||{},tot=Object.values(a).reduce((x,y)=>
 /* prep steps: lead-ups generated from each item (not separate items) */
 function prepSteps(t,now){now=now||new Date();const off=t.prepOff||[],out=[],done=t.prep||{};
   const add=(key,label,at,occ)=>{if(!off.includes(key)&&at&&!isNaN(at))out.push({key,label,at,occ,id:occ+'|'+key,done:!!done[occ+'|'+key]})};
-  if(t.kind==='person'&&t.birthday){const r=PP.info(t,now),occ=dkey(r.bday);const gd=t.giftDays??7,bd=t.buyDays??3;
-    add('gift','Pick a gift for '+t.name,fromKey(dkey(addD(r.bday,-gd)),winTime('morning')),occ);add('buy','Buy '+t.name+'\u2019s gift',fromKey(dkey(addD(r.bday,-bd)),winTime('morning')),occ);
-    add('wish','Send '+t.name+' birthday wishes',fromKey(occ,winTime('morning')),occ)}
+  if(t.kind==='person'&&t.birthday){const r=PP.info(t,now),occ=dkey(r.bday);const gd=t.giftDays??7,bd=t.buyDays??3,pt=t.time||winTime('morning');
+    add('gift','Pick a gift for '+t.name,fromKey(dkey(addD(r.bday,-gd)),pt),occ);add('buy','Buy '+t.name+'\u2019s gift',fromKey(dkey(addD(r.bday,-bd)),pt),occ);
+    add('wish','Send '+t.name+' birthday wishes',fromKey(occ,pt),occ)}
   if(t.kind==='event'&&t.date&&!t.done){const at=RM.at(t),occ=t.date;if(at>now){add('prep','Get ready for '+t.title,fromKey(dkey(addD(at,-1)),winTime('tonight')),occ);
     if(t.travel&&effTime(t))add('leave','Leave now for '+t.title,new Date(at.getTime()-t.travel*60e3),occ)}}
-  if(t.kind==='bill'&&!t.autopay){const s=BL.state(t,now);if(s.at&&s.dd>=0)add('heads','Heads-up: '+t.title+' is due in 2 days',fromKey(dkey(addD(s.at,-2)),winTime('morning')),s.key)}
+  if(t.kind==='bill'&&!t.autopay){const s=BL.state(t,now);if(s.at&&s.dd>=0)add('heads','Heads-up: '+t.title+' is due in 2 days',fromKey(dkey(addD(s.at,-2)),t.time||winTime('morning')),s.key)}
+  /* "remind me before": any cat, any number of early reminders */
+  if((t.before||[]).length){const o=nextOcc(t,now);if(o&&o.at>now)for(const mn of t.before){const b=+mn;if(!(b>0))continue;
+    add('b'+b,beforeLbl(b)+': '+(t.title||t.name),new Date(o.at.getTime()-b*60e3),o.key)}}
   return out}
+const BEFORE=[[15,'15 min before'],[60,'1 hour before'],[1440,'1 day before'],[2880,'2 days before'],[10080,'1 week before']];
+function beforeLbl(m){return m<60?'In '+m+' minutes':m<1440?'In '+(m/60)+' hour'+(m===60?'':'s'):m===1440?'Tomorrow':m%10080===0?'In '+(m/10080)+' week'+(m===10080?'':'s'):'In '+Math.round(m/1440)+' days'}
+/* the next time something happens, for any cat (used by "remind me before") */
+function nextOcc(t,now){now=now||new Date();
+  if(t.kind==='reminder'||t.kind==='event'){if(t.done||!t.date)return null;const at=RM.at(t,now);return at?{at,key:dkey(at)}:null}
+  if(t.kind==='bill'){const s=BL.state(t,now);return s.at?{at:s.at,key:s.key}:null}
+  if(t.kind==='expiry'){if(t.done||!t.date)return null;const at=fromKey(t.date,t.time||winTime('morning'));return{at,key:t.date}}
+  if(t.kind==='person'&&t.birthday){const r=PP.info(t,now),at=fromKey(dkey(r.bday),t.time||winTime('morning'));return{at,key:dkey(r.bday)}}
+  if(t.kind==='habit'&&effTime(t)){for(let i=0;i<8;i++){const d=addD(day0(now),i),at=fromKey(dkey(d),effTime(t));if(at>now&&HB.due(t,d)&&!HB.done(t,d))return{at,key:dkey(d)}}}
+  return null}
 function tickStep(t,id){t.prep=t.prep||{};t.prep[id]=!t.prep[id];t.updated=Date.now();if(t.prep[id]){logDone(t.cat);cheer(t.cat)}save()}
 /* smart snooze */
 const SNOOZE=[['10m','10 minutes'],['1h','1 hour'],['tonight','Tonight'],['morning','Tomorrow morning'],['weekend','This weekend']];
@@ -1734,8 +1889,8 @@ function maybeBrief(){if(SET().briefing===false||BRIEF.on)return;if(DB.lastBrief
 let calYM=null,calSel=null;
 function dayItems(d){const out=[],k=dkey(d),now=new Date(),md=pad(d.getMonth()+1)+'-'+pad(d.getDate());
   for(const t of liveItems()){
-    if((t.kind==='reminder'||t.kind==='event')&&t.date===k)out.push({t,cat:t.cat,label:(t.done?'\u2713 ':'')+t.title+(effTime(t)?' \u00b7 '+(t.window?WIN_LBL[t.window]:fmtTime(effTime(t))):'')});
-    if(t.kind==='bill'&&BL.inMonth(t,d.getFullYear(),d.getMonth())){const at=BL.occ(t,d.getFullYear(),d.getMonth());if(dkey(at)===k&&!(fromKey(t.start)&&day0(at)<fromKey(t.start))){const pd=(t.paid||{})[BL.pkey(t,at)];out.push({t,cat:'mochi',label:(pd?'\u2713 ':'')+t.title+(t.amount?' \u00b7 '+money(t.amount):'')+(t.autopay?' \u00b7 autopay':'')})}}
+    if((t.kind==='reminder'||t.kind==='event')&&RM.onDay(t,d))out.push({t,cat:t.cat,label:(t.done?'\u2713 ':'')+t.title+(effTime(t)?' \u00b7 '+(t.window?WIN_LBL[t.window]:fmtTime(effTime(t))):'')});
+    if(t.kind==='bill')for(const at of BL.occsIn(t,d.getFullYear(),d.getMonth())){if(dkey(at)===k){const pd=(t.paid||{})[BL.pkey(t,at)];out.push({t,cat:'mochi',label:(pd?'\u2713 ':'')+t.title+(t.amount?' \u00b7 '+money(t.amount):'')+(t.autopay?' \u00b7 autopay':'')})}}
     if(t.kind==='expiry'&&!t.done&&t.date===k)out.push({t,cat:'patches',label:t.title+' expires'});
     if(t.kind==='person'){const leapMd=(t.birthday==='02-29'&&new Date(d.getFullYear(),1,29).getMonth()!==1)?'03-01':t.birthday;if(leapMd===md)out.push({t,cat:'sesame',label:'\ud83c\udf82 '+t.name+(t.year?' turns '+(d.getFullYear()-t.year):'')});if(t.anniversary===md)out.push({t,cat:'sesame',label:'\ud83d\udc9e '+t.name+' anniversary'})}
     for(const st of prepSteps(t,now))if(dkey(st.at)===k)out.push({t,cat:t.cat,label:(st.done?'\u2713 ':'')+st.label,step:st})}
@@ -1932,7 +2087,7 @@ function frame(){
   cam.position.set(tgt.x+Math.sin(az)*Math.cos(el)*rad,tgt.y+Math.sin(el)*rad,tgt.z+Math.cos(az)*Math.cos(el)*rad);
   cam.lookAt(tgt);
   walls.forEach(w=>w.g.visible=cam.position.x*w.nx+cam.position.z*w.nz<w.off);
-  cats.forEach(C=>tickCat(C,dt,t));tickFx(dt,t);playFx(dt,t);vacFx(dt,t);healthFx(dt,t);
+  cats.forEach(C=>tickCat(C,dt,t));sepCats();tickFx(dt,t);playFx(dt,t);vacFx(dt,t);healthFx(dt,t);
   R.render(S,cam);PWR.drawn++;requestAnimationFrame(frame);
 }
 ['pointerdown','pointermove','keydown','wheel','touchstart'].forEach(ev=>addEventListener(ev,()=>{PWR.touch=performance.now()},{passive:true,capture:true}));
@@ -2068,13 +2223,19 @@ Return ONLY a JSON object. Choose "kind":
 - "habit": something repeated to build a routine. Fields: title, habit = {"type":"daily"} | {"type":"weekdays","days":[0-6, 0=Sunday]} | {"type":"everyN","n":days} | {"type":"timesPerDay","n":count} | {"type":"perWeek","n":count}; optional time "HH:MM" or window.
 - "bill": a payment. Fields: title, amount (number, no currency), freq "monthly"|"quarterly"|"yearly"|"once", day (1-31), month (1-12, yearly only), date (YYYY-MM-DD, only for freq "once"), autopay (true if paid automatically). Use freq "once" for a one-off payment with a single due date (e.g. "pay the plumber RM250 on 5 Nov", "one-off fee due Friday").
 - "expiry": something that expires or must be renewed. Fields: title, date "YYYY-MM-DD", type "id"|"insurance"|"warranty"|"voucher"|"trial"|"membership"|"other".
-- "reminder": a one-off task to do. Fields: title, date "YYYY-MM-DD", and either time "HH:MM" or window.
-- "event": an appointment or occasion to attend. Fields: title, date, and time or window.
+- "reminder": a task to do. Fields: title, date "YYYY-MM-DD", and either time "HH:MM" or window. Add repeat if it recurs.
+- "event": an appointment or occasion to attend. Fields: title, date, and time or window. Add repeat if it recurs.
+- repeat (for reminder, event, or a bill whose pattern isn't a plain monthly/quarterly/yearly date — then use freq "custom"): {"f":"day"|"week"|"month"|"year","n":every-n (1 = every, 2 = every other),"days":[0-6 weekdays, 0=Sunday] for week,"m":"date"|"last"|"lastwd"|"nth" for month,"day":1-31 for m "date","nth":1-4 or -1 for last,"wd":0-6 for m "nth","until":"YYYY-MM-DD" optional,"count":number of times optional}. E.g. "last Saturday of every month" = {"f":"month","n":1,"m":"nth","nth":-1,"wd":6}; "every other Friday" = {"f":"week","n":2,"days":[5]}; "last working day of each month" = {"f":"month","m":"lastwd"}.
 - "person": someone to remember. Fields: name, and any of birthday "MM-DD", anniversary "MM-DD", year (birth or wedding year), touchDays (keep in touch every N days).
 - "idea": a someday idea with no date. Fields: title.
 window is one of "morning","afternoon","afterwork","tonight","weekend" (use it for vague times like "tonight" or "after work"; use time for exact times).
 Rules: resolve relative dates ("Friday", "next week", "esok", "lusa") from today's date, choosing the next future date. A reminder with no date means today. Titles are short, clean and capitalised, without the date, time, amount or words like "autopay"/"remind me". Leave out fields you don't know. Never invent amounts or dates.
 If the note is not something to save, return {"kind":"none"}.`;
+/* a repeat rule from Gemini (or anywhere), checked field by field */
+function repClean(o){if(!o||typeof o!=='object'||!['day','week','month','year'].includes(o.f))return null;const I=(v,a,b)=>Number.isFinite(+v)&&+v>=a&&+v<=b?Math.round(+v):null,r={f:o.f,n:I(o.n,1,52)||1};
+  if(o.f==='week'&&Array.isArray(o.days)){const ds=[...new Set(o.days.map(x=>I(x,0,6)).filter(x=>x!=null))];if(ds.length)r.days=ds.sort((a,b)=>a-b)}
+  if(o.f==='month'||o.f==='year'){if(['date','last','lastwd','nth'].includes(o.m))r.m=o.m;if(r.m==='date'&&I(o.day,1,31))r.day=I(o.day,1,31);if(r.m==='nth'){r.nth=+o.nth===-1?-1:(I(o.nth,1,4)||1);r.wd=I(o.wd,0,6)??0}if(o.f==='year'&&I(o.month,1,12))r.month=I(o.month,1,12)}
+  if(typeof o.until==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(o.until))r.until=o.until;if(I(o.count,1,999))r.count=I(o.count,1,999);return r}
 function gmCleanItem(o){if(!o||typeof o!=='object')return null;const k=String(o.kind||'').toLowerCase();if(!KIND_CAT[k])return null;
   const str=(v,n)=>typeof v==='string'&&v.trim()?v.trim().slice(0,n||80):null,date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(fromKey(v))?v:null,
     time=v=>typeof v==='string'&&/^([01]?\d|2[0-3]):[0-5]\d$/.test(v)?pad(+v.split(':')[0])+':'+v.split(':')[1]:null,md=v=>typeof v==='string'&&/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v)?v:null,
@@ -2084,9 +2245,11 @@ function gmCleanItem(o){if(!o||typeof o!=='object')return null;const k=String(o.
   else d.title=t[0].toUpperCase()+t.slice(1);
   if(k==='habit'){const h=o.habit||{},ty=h.type;d.habit=ty==='weekdays'&&Array.isArray(h.days)&&h.days.length?{type:'weekdays',days:[...new Set(h.days.map(x=>int(x,0,6)).filter(x=>x!=null))].sort()}:
       ['everyN','timesPerDay','perWeek'].includes(ty)&&int(h.n,1,60)?{type:ty,n:int(h.n,1,60)}:{type:'daily'};if(d.habit.type==='weekdays'&&!d.habit.days.length)d.habit={type:'daily'}}
-  if(k==='bill'){const a=+String(o.amount??'').replace(/[^\d.]/g,'');if(a>0&&a<1e8)d.amount=Math.round(a*100)/100;d.freq=['monthly','quarterly','yearly','once'].includes(o.freq)?o.freq:'monthly';if(d.freq==='once'){const dd=date(o.date)||dkey(new Date());if(!date(o.date))d.notes.push('Check the date');d.date=dd;d.day=+dd.slice(8);d.month=+dd.slice(5,7)}else d.day=int(o.day,1,31)||new Date().getDate();if(d.freq==='yearly')d.month=int(o.month,1,12)||new Date().getMonth()+1;if(o.autopay===true)d.autopay=true}
+  if(k==='bill'){const a=+String(o.amount??'').replace(/[^\d.]/g,'');if(a>0&&a<1e8)d.amount=Math.round(a*100)/100;d.freq=['monthly','quarterly','yearly','once','custom'].includes(o.freq)?o.freq:'monthly';if(d.freq==='custom'){const r=repClean(o.repeat);if(r){const a=date(o.date)||dkey(new Date()),f=REP.onOrAfter(r,fromKey(a),fromKey(a));r.start=a;d.rep=r;d.start=a;if(f){d.date=dkey(f);d.day=f.getDate();d.month=f.getMonth()+1}}else d.freq='monthly'}if(d.freq==='once'){const dd=date(o.date)||dkey(new Date());if(!date(o.date))d.notes.push('Check the date');d.date=dd;d.day=+dd.slice(8);d.month=+dd.slice(5,7)}else d.day=int(o.day,1,31)||new Date().getDate();if(d.freq==='yearly')d.month=int(o.month,1,12)||new Date().getMonth()+1;if(o.autopay===true)d.autopay=true}
   if(k==='expiry'){const dt=date(o.date);if(dt)d.date=dt;d.type=EXPLBL[o.type]?o.type:'other'}
-  if(k==='reminder'||k==='event'){d.date=date(o.date)||(k==='reminder'?dkey(new Date()):null);if(!d.date)delete d.date}
+  if(k==='reminder'||k==='event'){d.date=date(o.date)||(k==='reminder'?dkey(new Date()):null);if(!d.date)delete d.date;
+    const r=repClean(o.repeat);if(r){const a=d.date||dkey(new Date());if(r.f==='week'&&!(r.days&&r.days.length))r.days=[fromKey(a).getDay()];if(r.f==='month'&&!r.m){r.m='date';r.day=fromKey(a).getDate()}if(r.f==='year'){r.month=+a.slice(5,7);r.day=+a.slice(8)}
+      const f=REP.onOrAfter(r,fromKey(a),fromKey(a));if(f){r.start=a;d.rep=r;d.date=dkey(f)}}}
   if(k==='habit'||k==='reminder'||k==='event'){const w=win(o.window),tm=time(o.time);if(w){d.window=w;d.time=winTime(w)}else if(tm)d.time=tm}
   d.cat=KIND_CAT[k];return d}
 async function gmAdd(text){const o=await gmCall(GM_ADD_SYS,gmToday()+'\nNote: '+text,8000);if(o&&o.kind==='none')return{none:true};const d=gmCleanItem(o);if(!d)throw new Error('Gemini couldn’t make an item from that');
@@ -2097,9 +2260,10 @@ function gmContext(){const now=new Date(),L=[];
   for(const t of liveItems()){const x={kind:t.kind,title:t.title||t.name};
     for(const f of ['date','time','window','amount','freq','day','month','autopay','type','birthday','anniversary','year','touchDays','lastTalked','done','notes'])if(t[f]!=null&&t[f]!==''&&!(Array.isArray(t[f])&&!t[f].length))x[f]=t[f];
     if(t.kind==='habit'){x.schedule=HB.sched(t);x.doneToday=HB.count(t,now)+'/'+HB.target(t);x.streak=HB.streak(t,now).n}
-    if(t.kind==='bill'){const s=BL.state(t,now);x.status=s.state;if(s.at)x.nextDue=dkey(s.at)}
+    if(t.kind==='bill'){const s=BL.state(t,now);x.status=s.state;if(s.at)x.nextDue=dkey(s.at);x.schedule=BL.freqTxt(t)}
     if(t.kind==='expiry'){const s=EX.state(t,now);x.status=s.state}
-    if(t.kind==='reminder'||t.kind==='event'){const s=RM.state(t,now);x.status=s.state}
+    if(t.kind==='reminder'||t.kind==='event'){const s=RM.state(t,now);x.status=s.state;if(s.at)x.next=dkey(s.at);if(REP.ok(t.rep))x.repeats=REP.txt(t.rep,fromKey(t.rep.start||t.date))}
+    if((t.before||[]).length)x.remindBefore=t.before.map(beforeLbl);
     if(t.kind==='person'){const r=PP.info(t,now);if(r.bday)x.nextBirthday=dkey(r.bday);if(r.since!=null)x.daysSinceTalked=r.since}
     if(t.gifts&&t.gifts.length)x.giftIdeas=t.gifts.slice(-3);L.push(x);if(L.length>=200)break}
   return L}
@@ -2248,7 +2412,7 @@ async function nvSchedule(){if(!NV.on||!NV.LN)return;if(NV.busy){NV.again=true;r
     if(typeof calAlarms==='function'){for(const c of calAlarms(now,now+NV_DAYS*864e5))if(!DB.alerted[c.k])notes.push({id:nvHash(c.k),cat:'sesame',title:c.title,body:c.body,at:Math.floor(c.at/60e3)*60e3+1000,keys:[c.k],type:''});notes.sort((a,b)=>a.at-b.at);notes.length=Math.min(notes.length,NV_MAX)}
     /* the morning briefing notification for each of the next days (skipped for today if you've already heard it) */
     {const briefs=[];for(let i=0;i<=NV_DAYS;i++){const d=new Date(now+i*864e5),tm=briefTime(d);if(!tm)continue;const[h,m]=tm.split(':').map(Number),at=new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m).getTime()+1000;
-        if(at<=now||DB.lastBriefing===dkey(d))continue;const b=briefNote(at),k='brief|'+dkey(d);briefs.push({id:nvHash(k),cat:'sesame',title:b.title,body:b.body,large:b.large,at,keys:[k],brief:dkey(d),type:''})}
+        if(at<=now||at-now>NV_DAYS*864e5||DB.lastBriefing===dkey(d))continue;const b=briefNote(at),k='brief|'+dkey(d);briefs.push({id:nvHash(k),cat:'sesame',title:b.title,body:b.body,large:b.large,at,keys:[k],brief:dkey(d),type:''})}
       if(briefs.length){notes.length=Math.min(notes.length,NV_MAX-briefs.length);notes.push(...briefs);notes.sort((a,b)=>a.at-b.at)}}
     const pend=await NV.LN.getPending().catch(()=>({notifications:[]}));const want=new Set(notes.map(n=>n.id));
     const old=(pend.notifications||[]).filter(n=>!want.has(+n.id)).map(n=>({id:+n.id}));if(old.length)await NV.LN.cancel({notifications:old});
