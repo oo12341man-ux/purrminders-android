@@ -1291,18 +1291,20 @@ const REP={
       const d=1+((wd-new Date(y,m,1).getDay()+7)%7)+7*((+r.nth||1)-1);return d<=dim?new Date(y,m,d):null}
     return new Date(y,m,Math.min(+r.day||a.getDate(),dim))},
   /* walk the occurrences from the anchor day in order; fn(day,index) returns true to stop */
-  each(r,anchor,fn){const a=day0(anchor),n=Math.max(1,+r.n||1),u=r.until?fromKey(r.until):null;let i=0;
+  each(r,anchor,fn,from){const a=day0(anchor),n=Math.max(1,+r.n||1),u=r.until?fromKey(r.until):null;let i=0;
+    /* jump straight to "from" when nothing needs counting from the start */
+    const skip=from&&!r.count?Math.max(0,day0(from)-a):0,mo=skip?Math.max(0,(day0(from).getFullYear()-a.getFullYear())*12+day0(from).getMonth()-a.getMonth()-1):0;
     const emit=d=>{if(u&&d>u)return true;if(r.count&&i>=+r.count)return true;i++;return fn(d,i)};
-    if(r.f==='day'){for(let k=0;k<20000;k++)if(emit(addD(a,k*n)))return}
+    if(r.f==='day'){for(let k=skip?Math.floor(skip/864e5/n):0;k<20000;k++)if(emit(addD(a,k*n)))return}
     else if(r.f==='week'){const ds=(r.days&&r.days.length?r.days:[a.getDay()]).map(Number).sort((x,y)=>x-y),first=ds.map(wd=>addD(a,(wd-a.getDay()+7)%7)).sort((x,y)=>x-y)[0],w0=addD(first,-first.getDay());
-      for(let w=0;w<5000;w++)for(const wd of ds){const d=addD(w0,w*7*n+wd);if(d<a)continue;if(emit(d))return}}
-    else if(r.f==='month'){for(let k=0;k<2400;k++){const mm=a.getMonth()+k*n,y=a.getFullYear()+Math.floor(mm/12),d=REP.dayIn(r,y,((mm%12)+12)%12,a);if(!d||d<a)continue;if(emit(d))return}}
-    else if(r.f==='year'){const mo=(+r.month||a.getMonth()+1)-1;for(let k=0;k<300;k++){const d=REP.dayIn(r.m?r:Object.assign({},r,{day:r.day||a.getDate()}),a.getFullYear()+k*n,mo,a);if(!d||d<a)continue;if(emit(d))return}}},
+      for(let w=skip?Math.max(0,Math.floor((daysBetween(w0,day0(from))/7-1)/n)):0;w<5000;w++)for(const wd of ds){const d=addD(w0,w*7*n+wd);if(d<a)continue;if(emit(d))return}}
+    else if(r.f==='month'){for(let k=Math.floor(mo/n);k<2400;k++){const mm=a.getMonth()+k*n,y=a.getFullYear()+Math.floor(mm/12),d=REP.dayIn(r,y,((mm%12)+12)%12,a);if(!d||d<a)continue;if(emit(d))return}}
+    else if(r.f==='year'){const mo_=(+r.month||a.getMonth()+1)-1;for(let k=skip?Math.max(0,Math.floor((day0(from).getFullYear()-a.getFullYear()-1)/n)):0;k<300;k++){const d=REP.dayIn(r.m?r:Object.assign({},r,{day:r.day||a.getDate()}),a.getFullYear()+k*n,mo_,a);if(!d||d<a)continue;if(emit(d))return}}},
   onOrAfter(r,anchor,from){let out=null;const f=day0(from);if(r.f==='day'&&!r.count){const a=day0(anchor),n=Math.max(1,+r.n||1),k=Math.max(0,Math.ceil(daysBetween(a,f)/n)),d=addD(a,k*n);return r.until&&d>fromKey(r.until)?null:d}
-    REP.each(r,anchor,d=>{if(d>=f){out=d;return true}});return out},
+    REP.each(r,anchor,d=>{if(d>=f){out=d;return true}},f);return out},
   after(r,anchor,day){return REP.onOrAfter(r,anchor,addD(day0(day),1))},
   is(r,anchor,day){const d=REP.onOrAfter(r,anchor,day);return!!d&&d.getTime()===day0(day).getTime()},
-  between(r,anchor,a,b){const out=[],A=day0(a),B=day0(b);REP.each(r,anchor,d=>{if(d>B)return true;if(d>=A)out.push(d)});return out},
+  between(r,anchor,a,b){const out=[],A=day0(a),B=day0(b);REP.each(r,anchor,d=>{if(d>B)return true;if(d>=A)out.push(d)},A);return out},
   txt(r,anchor){if(!REP.ok(r))return'';const n=Math.max(1,+r.n||1),a=anchor?day0(anchor):day0(new Date()),dn=i=>WDN[i].slice(0,3),
       on=()=>r.m==='last'?'on the last day':r.m==='lastwd'?'on the last working day':r.m==='nth'?'on the '+(+r.nth===-1?'last':['','first','second','third','fourth'][+r.nth||1])+' '+WDN[r.wd!=null?+r.wd:a.getDay()]:'on the '+(+r.day||a.getDate())+ord(+r.day||a.getDate());
     let s=r.f==='day'?(n===1?'Every day':n===2?'Every other day':'Every '+n+' days')
@@ -1565,6 +1567,8 @@ function repWire(f,anchorName){const g=()=>Object.fromEntries(new FormData(f));l
     $('rul').hidden=d.re!=='until';$('rcl').hidden=d.re!=='count';$('rnu').textContent={day:'days',week:'weeks',month:'months',year:'years'}[v]||'';const r=readRep(d,d[anchorName]);$('rtxt').textContent=r?REP.txt(r,fromKey(d[anchorName])):''};
   f.querySelectorAll('.rep select,.rep input,[name="'+anchorName+'"]').forEach(i=>{i.addEventListener('change',up);i.addEventListener('input',up)})}
 function billDue(v){if(v.freq==='once'||!v.id)return v.date||dkey(new Date());const s=v.id?BL.state(v,new Date()):null;return s&&s.at?dkey(s.at):(v.start||dkey(new Date()))}
+function keepStart(old,r,anchor){if(!old||!r||!REP.ok(old)||!old.start)return r;const C=x=>{const o={f:x.f,n:+x.n||1};if(x.f==='week')o.days=(x.days||[]).map(Number).sort();if(x.f==='month'||x.f==='year'){o.m=x.m||'date';if(o.m==='nth'){o.nth=+x.nth;o.wd=+x.wd}}return JSON.stringify(o)},a=C(old),b=C(r);
+  if(a===b&&REP.is(old,fromKey(old.start),fromKey(anchor)))r.start=old.start;return r}
 function billRule(v){if(v.freq==='custom')return v.rep;if(v.freq==='once')return null;if(v.freq==='yearly')return{f:'year',n:1};return{f:'month',n:v.freq==='quarterly'?3:1,m:'date'}}
 function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.assign({},pre||{},t||{});const F=[];
   const inp=(n,l,type,val,extra)=>'<label>'+l+'<input name="'+n+'" type="'+(type||'text')+'" value="'+esc(val??'')+'" '+(extra||'')+'></label>';
@@ -1578,7 +1582,7 @@ function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.ass
     inp('btime','Time (optional)','time',v.time),repHTML(isNew&&!v.freq?{f:'month',n:1,m:'date'}:billRule(v),billDue(v),'Never (one-off)'),'<label class="row"><input type="checkbox" name="autopay"'+(v.autopay?' checked':'')+'> Paid automatically (autopay)</label>',inp('notes','Notes (optional)','text',v.notes,'maxlength="120"'),beforeHTML(v.before));
   if(kind==='expiry')F.push(inp('title','What expires','text',v.title,'required maxlength="80"'),'<div class="two">'+selF('type','Type',Object.entries(EXPLBL),v.type||'other')+inp('date','Expiry date','date',v.date,'required')+'</div>','<div class="two">'+inp('lead','Warn me this many days before','number',v.lead??LEAD[v.type||'other'],'min="0" max="365"')+inp('etime','Warning time (optional)','time',v.time)+'</div>',beforeHTML(v.before));
   if(kind==='reminder'||kind==='event'){F.push(inp('title',kind==='event'?'Appointment / date':'Remind me to','text',v.title,'required maxlength="80"'),'<div class="two">'+inp('date','Date','date',v.date||dkey(new Date()),'required')+inp('time','Exact time (optional)','time',v.window?'':v.time)+'</div>',
-    selF('window','\u2026or a time of day',[['','\u2013']].concat(Object.keys(WIN_LBL).filter(k=>k!=='weekend').map(k=>[k,WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+' ('+fmtTime(winTime(k))+')'])),v.window||''));
+    selF('window','\u2026or a time of day',[['','\u2013']].concat(Object.keys(WIN_LBL).filter(k=>k!=='weekend'||v.window==='weekend').map(k=>[k,WIN_LBL[k][0].toUpperCase()+WIN_LBL[k].slice(1)+' ('+fmtTime(winTime(k))+')'])),v.window||''));
     F.push(repHTML(v.rep,v.date||dkey(new Date())),beforeHTML(v.before));
     if(kind==='event')F.push(inp('travel','Travel time in minutes (for a \u201cleave now\u201d nudge)','number',v.travel||'','min="0" max="600"'),'<label class="row"><input type="checkbox" name="stepprep"'+((v.prepOff||[]).includes('prep')?'':' checked')+'> Remind me to get ready the evening before</label>')}
   if(kind==='person'){const md=v.birthday?v.birthday.split('-'):['',''],an=v.anniversary?v.anniversary.split('-'):['',''];
@@ -1592,18 +1596,18 @@ function openForm(kind,t,pre){sheetMode='form';const isNew=!t;const v=Object.ass
   f.onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));const p={kind};
     if(kind==='idea')p.title=d.title.trim();
     if(kind==='habit'){p.title=d.title.trim();p.habit={type:d.htype};if(['timesPerDay','perWeek','everyN'].includes(d.htype))p.habit.n=Math.max(1,+d.hn||(d.htype==='perWeek'?3:2));if(d.htype==='weekdays'){p.habit.days=[0,1,2,3,4,5,6].filter(i=>d['d'+i]);if(!p.habit.days.length)return say('Pick at least one day.')}p.time=d.time||null;
-      if(d.htype==='rule'){const r=readRep(d,d.hstart);if(!r)return say('Pick how it repeats.');p.habit={type:'rule',rule:r};p.start=d.hstart||dkey(new Date())}}
-    if(kind==='bill'){if(!fromKey(d.due))return say('Pick the due date.');const r=readRep(d,d.due),due=fromKey(d.due);
+      if(d.htype==='rule'){const r=keepStart(t&&t.habit&&t.habit.rule,readRep(d,d.hstart),d.hstart);if(!r)return say('Pick how it repeats.');p.habit={type:'rule',rule:r};p.start=d.hstart||dkey(new Date())}}
+    if(kind==='bill'){if(!fromKey(d.due))return say('Pick the due date.');const r=keepStart(t&&t.freq==='custom'&&t.rep,readRep(d,d.due),d.due),due=fromKey(d.due);
       Object.assign(p,{title:d.title.trim(),amount:d.amount===''?null:+d.amount,autopay:!!d.autopay,notes:d.notes||'',time:d.btime||null,day:due.getDate(),month:due.getMonth()+1,rep:null,date:null});
       const plain=r&&!r.until&&!r.count&&(r.m||'date')==='date';
       if(!r){p.freq='once';p.date=d.due}
       else if(plain&&r.f==='month'&&(r.n===1||r.n===3)){p.freq=r.n===1?'monthly':'quarterly';p.start=d.due}
       else if(plain&&r.f==='year'&&r.n===1){p.freq='yearly';p.start=d.due}
-      else{p.freq='custom';p.rep=r;p.start=d.due}
+      else{p.freq='custom';p.rep=r;p.start=r.start||d.due}
       if(t&&t.freq==='once'&&p.freq!=='once'&&t.paid)delete t.paid.once}
     if(kind==='expiry')Object.assign(p,{title:d.title.trim(),type:d.type,date:d.date,lead:+d.lead,time:d.etime||null});
     if(kind==='reminder'||kind==='event'){Object.assign(p,{title:d.title.trim(),date:d.date,window:d.window||null,time:d.window?winTime(d.window):(d.time||null)});
-      {const r=readRep(d,d.date);p.rep=r;if(r){const f1=REP.onOrAfter(r,fromKey(d.date),fromKey(d.date));if(!f1)return say('That repeat never happens – check the dates.');p.date=dkey(f1)}}if(kind==='event'){p.travel=+d.travel||0;p.prepOff=d.stepprep?[]:['prep']}}
+      {const r=keepStart(t&&t.rep,readRep(d,d.date),d.date);p.rep=r;if(r){const f1=REP.onOrAfter(r,fromKey(d.date),fromKey(d.date));if(!f1)return say('That repeat never happens – check the dates.');p.date=dkey(f1)}}if(kind==='event'){p.travel=+d.travel||0;p.prepOff=d.stepprep?[]:['prep']}}
     if(kind==='bill')p.prepOff=d.stepheads?[]:['heads'];
     if(kind==='person'){p.prepOff=[];const gd=+d.giftDays,bd=+d.buyDays;if(!gd)p.prepOff.push('gift');else p.giftDays=gd;if(!bd)p.prepOff.push('buy');else p.buyDays=bd;if(!d.stepwish)p.prepOff.push('wish');Object.assign(p,{name:d.name.trim(),title:d.name.trim(),birthday:d.bm&&d.bd?d.bm+'-'+pad(+d.bd):null,year:d.year?+d.year:null,anniversary:d.am&&d.ad?d.am+'-'+pad(+d.ad):null,touchDays:+d.touch||0,notes:d.notes||''});if(p.touchDays&&!v.lastTalked)p.lastTalked=dkey(new Date());p.time=d.ptime||null}
     if(kind!=='idea')p.before=readBefore(d);
